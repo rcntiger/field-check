@@ -136,9 +136,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .rv-minimap{position:absolute;bottom:12px;right:12px;width:180px;height:140px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,.8);box-shadow:0 4px 12px rgba(0,0,0,.5);z-index:300;display:none}
 
 /* 마커 */
-.kk-marker{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);cursor:pointer;transition:all .2s}
+.kk-marker{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);cursor:pointer;transition:all .2s;background:#ef4444}
 .kk-marker:hover{transform:scale(1.5)}
-.kk-marker.done{background:#22c55e!important;width:14px!important;height:14px!important}
+.kk-marker.done{background:#22c55e!important;width:14px!important;height:14px!important;box-shadow:0 2px 8px rgba(34,197,94,.6)!important}
 .kk-marker.active-mk{width:20px!important;height:20px!important;border:3px solid #fff!important;box-shadow:0 0 0 3px rgba(255,255,255,.5),0 3px 10px rgba(0,0,0,.7)!important}
 .g1{background:#3b82f6}.g2{background:#ef4444}.g3{background:#a78bfa}.g4{background:#f59e0b}.g5{background:#10b981}.g6{background:#ec4899}.g0{background:#7d8590}
 
@@ -451,11 +451,24 @@ document.addEventListener('DOMContentLoaded',()=>{
 // ━━ 홈 ━━
 async function loadProjects(){
   try{
-    const r=await sb('inspections?select=*,inspection_items(count),inspection_done(count)&order=created_at.desc');
-    if(!r.ok)throw new Error();
-    const data=await r.json();
-    renderProjects(data);
-  }catch(e){showToast('프로젝트 로드 실패','err');}
+    const r=await sb('inspections?select=*&order=created_at.desc');
+    if(!r.ok){const t=await r.text();throw new Error(r.status+' '+t);}
+    const projs=await r.json();
+    // 각 프로젝트의 건수·완료수 로드
+    for(const p of projs){
+      try{
+        const [ri,rd]=await Promise.all([
+          sb(`inspection_items?inspection_id=eq.${p.id}&select=id`),
+          sb(`inspection_done?inspection_id=eq.${p.id}&select=item_id`)
+        ]);
+        const items=await ri.json();
+        const done=await rd.json();
+        p._total=Array.isArray(items)?items.length:0;
+        p._done=Array.isArray(done)?done.length:0;
+      }catch{p._total=0;p._done=0;}
+    }
+    renderProjects(projs);
+  }catch(e){showToast('프로젝트 로드 실패: '+e.message,'err');console.error(e);}
 }
 function renderProjects(list){
   const grid=document.getElementById('projectGrid');
@@ -464,8 +477,8 @@ function renderProjects(list){
   if(!list.length){empty.style.display='block';grid.appendChild(empty);return;}
   empty.style.display='none';
   list.forEach(p=>{
-    const total=p.inspection_items?.[0]?.count||0;
-    const done=p.inspection_done?.[0]?.count||0;
+    const total=p._total||0;
+    const done=p._done||0;
     const pct=total?Math.round(done/total*100):0;
     const card=document.createElement('div');
     card.className='project-card';
@@ -637,8 +650,8 @@ function showDiag(code){
 }
 
 // ━━ 마커/목록 렌더 ━━
-function groupColor(d){const i=groups.indexOf(d.group_name||'');return i>=0?GROUP_COLORS[i%6]:'#7d8590';}
-function groupCls(d){const i=groups.indexOf(d.group_name||'');return i>=0?GROUP_CLS[i%6]:'g0';}
+function groupColor(d){return '#ef4444';}
+function groupCls(d){return 'g2';}
 
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});
@@ -690,7 +703,7 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-divider"></div>
 
     <button class="iw-btn done-btn${isDone?' is-done':''}" id="doneBtn-${idx}" onclick="toggleDone(${idx})">
-      ${isDone?'✓ 점검완료 (취소)':'점검완료 체크'}
+      ${isDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭'}
     </button>
     <div id="dateRow-${idx}" style="display:${isDone?'flex':'none'}" class="iw-date-row">
       <label>📅 점검일자</label>
@@ -772,7 +785,7 @@ async function toggleDone(idx){
   // UI 갱신
   const newDone=!!doneMap[d.id];
   const btn=document.getElementById(`doneBtn-${idx}`);
-  if(btn){btn.textContent=newDone?'✓ 점검완료 (취소)':'점검완료 체크';btn.classList.toggle('is-done',newDone);}
+  if(btn){btn.textContent=newDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭';btn.classList.toggle('is-done',newDone);}
   const dateRow=document.getElementById(`dateRow-${idx}`);
   if(dateRow){
     dateRow.style.display=newDone?'flex':'none';
