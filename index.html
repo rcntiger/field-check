@@ -138,6 +138,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 /* 마커 */
 .kk-marker{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);cursor:pointer;transition:all .2s;background:#ef4444}
 .kk-marker:hover{transform:scale(1.5)}
+/* 마커 툴팁 */
+.mk-tooltip{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.92);color:#f1f5f9;font-size:11px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:999;opacity:0;transition:opacity .15s}
+.mk-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:rgba(15,23,42,.92)}
 .kk-marker.done{background:#22c55e!important;width:14px!important;height:14px!important;box-shadow:0 2px 8px rgba(34,197,94,.6)!important}
 .kk-marker.active-mk{width:20px!important;height:20px!important;border:3px solid #fff!important;box-shadow:0 0 0 3px rgba(255,255,255,.5),0 3px 10px rgba(0,0,0,.7)!important}
 .g1{background:#3b82f6}.g2{background:#ef4444}.g3{background:#a78bfa}.g4{background:#f59e0b}.g5{background:#10b981}.g6{background:#ec4899}.g0{background:#7d8590}
@@ -244,6 +247,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
     <button class="back-btn" onclick="goHome()">← 목록</button>
     <span class="map-header-title" id="mapHeaderTitle">점검 지도</span>
     <button class="btn btn-ghost" onclick="showUploadModal()" style="padding:4px 10px;font-size:11px;flex-shrink:0">📂 엑셀 업로드</button>
+    <button class="btn btn-ghost" onclick="showResetColModal()" style="padding:4px 10px;font-size:11px;flex-shrink:0">🔧 컬럼 재설정</button>
+    <button class="btn btn-ghost" onclick="exportExcel()" style="padding:4px 10px;font-size:11px;flex-shrink:0">⬇️ 내보내기</button>
   </div>
   <div class="layout">
     <div class="sidebar" id="sidebar">
@@ -402,6 +407,88 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
       <div style="font-size:13px;margin-bottom:8px" id="uploadProgress">업로드 중...</div>
       <div style="background:var(--sur2);border-radius:3px;height:4px;overflow:hidden">
         <div id="uploadBar" style="height:100%;background:var(--ac);border-radius:3px;transition:width .1s;width:0%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ 모달: 컬럼 재설정 ════ -->
+<div class="modal-bg" id="resetColModal">
+  <div class="modal" style="max-width:600px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0">🔧 컬럼 재설정</h3>
+      <button onclick="hideModal('resetColModal')" style="background:none;border:none;color:var(--mt);font-size:22px;cursor:pointer;line-height:1;padding:2px 6px">✕</button>
+    </div>
+    <!-- 로딩 -->
+    <div id="resetColLoading" style="text-align:center;padding:30px">
+      <div style="font-size:28px;margin-bottom:10px">⏳</div>
+      <div style="font-size:13px;color:var(--mt)">저장된 파일 불러오는 중...</div>
+    </div>
+    <!-- 파일 없음 -->
+    <div id="resetColNoFile" style="display:none;text-align:center;padding:30px">
+      <div style="font-size:28px;margin-bottom:10px">📭</div>
+      <div style="font-size:13px;color:var(--mt);margin-bottom:16px">저장된 원본 파일이 없습니다.<br>새로 업로드해 주세요.</div>
+      <button class="btn btn-primary" onclick="hideModal('resetColModal');showUploadModal()">📂 엑셀 업로드</button>
+    </div>
+    <!-- 컬럼 선택 -->
+    <div id="resetColStep" style="display:none">
+      <div style="background:rgba(255,123,114,.08);border:1px solid rgba(255,123,114,.25);border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:12px;color:var(--hi);line-height:1.7">
+        ⚠️ 재설정 시 기존 점검 항목(이름·주소·좌표)이 새로 교체됩니다.<br>
+        아래 옵션으로 점검 기록 처리를 선택하세요.
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;background:var(--sur2);border-radius:var(--r);padding:10px 12px">
+        <span style="font-size:11px;color:var(--mt);flex:1" id="resetColFileInfo"></span>
+        <select id="resetSheetSelect" onchange="changeResetSheet()" style="padding:4px 7px;font-size:11px;background:var(--sur3);border:1px solid var(--bd2);color:var(--tx);border-radius:5px"></select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div class="form-row" style="margin:0">
+          <label>이름 컬럼 *</label>
+          <select id="resetColName" style="padding:7px 8px"></select>
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>주소 컬럼 *</label>
+          <select id="resetColAddr" style="padding:7px 8px"></select>
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>그룹/팀 컬럼 (선택)</label>
+          <select id="resetColGroup" style="padding:7px 8px"></select>
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>추가 정보 컬럼 (선택)</label>
+          <select id="resetColExtra" style="padding:7px 8px"></select>
+        </div>
+      </div>
+      <div style="background:var(--sur2);border-radius:var(--r);padding:10px;margin-bottom:14px;overflow-x:auto">
+        <div style="font-size:10px;color:var(--mt);margin-bottom:6px;font-weight:600">미리보기 (상위 3행)</div>
+        <table id="resetPreviewTable" style="font-size:11px;width:100%;border-collapse:collapse"></table>
+      </div>
+      <!-- 삭제 옵션 -->
+      <div style="background:var(--sur2);border-radius:var(--r);padding:12px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--mt);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em">기존 데이터 처리</div>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="resetDelDone" style="margin-top:2px;accent-color:var(--hi)">
+          <span style="font-size:12px;line-height:1.5"><b style="color:var(--tx)">점검 완료 기록 삭제</b><br><span style="color:var(--mt)">완료 여부 · 점검 일자</span></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="resetDelMemo" style="margin-top:2px;accent-color:var(--hi)">
+          <span style="font-size:12px;line-height:1.5"><b style="color:var(--tx)">메모 삭제</b><br><span style="color:var(--mt)">각 항목에 입력한 메모</span></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="resetDelPhotos" style="margin-top:2px;accent-color:var(--hi)">
+          <span style="font-size:12px;line-height:1.5"><b style="color:var(--tx)">사진 삭제</b><br><span style="color:var(--mt)">Storage에서도 완전 삭제됨</span></span>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost" onclick="hideModal('resetColModal')">취소</button>
+        <button class="btn btn-danger" onclick="processResetCol()">🔄 재설정 실행</button>
+      </div>
+    </div>
+    <!-- 진행 -->
+    <div id="resetColProgress" style="display:none;text-align:center;padding:20px">
+      <div style="font-size:28px;margin-bottom:10px">⏳</div>
+      <div style="font-size:13px;margin-bottom:8px" id="resetColProgressLabel">처리 중...</div>
+      <div style="background:var(--sur2);border-radius:3px;height:4px;overflow:hidden">
+        <div id="resetColBar" style="height:100%;background:var(--ac);border-radius:3px;transition:width .1s;width:0%"></div>
       </div>
     </div>
   </div>
@@ -717,6 +804,15 @@ function addMarker(idx,d){
   const el=document.createElement('div');
   el.className=`kk-marker ${groupCls(d)}${isDone?' done':''}`;
   el.id='mk-'+idx;
+  el.style.position='relative';
+
+  // 툴팁
+  const tip=document.createElement('div');
+  tip.className='mk-tooltip';
+  tip.textContent=d.name;
+  el.appendChild(tip);
+  el.addEventListener('mouseenter',()=>{tip.style.opacity='1';});
+  el.addEventListener('mouseleave',()=>{tip.style.opacity='0';});
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
@@ -1125,6 +1221,17 @@ async function processUpload(){
   document.getElementById('uploadStep2').style.display='none';
   document.getElementById('uploadStep3').style.display='block';
 
+  // 원본 파일 Storage에 저장
+  const origFile=document.getElementById('excelFile').files[0];
+  if(origFile&&currentProject){
+    try{
+      const path=`${currentProject.id}/original.${origFile.name.split('.').pop()||'xlsx'}`;
+      await sbStore(`object/inspection-files/${path}`,{method:'POST',body:origFile,
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':origFile.type||'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'x-upsert':'true'}});
+    }catch(e){console.warn('원본 파일 저장 실패',e);}
+  }
+
   const parsed=excelRows.map(r=>({
     name:String(r[+ci.name]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
     address:String(r[+ci.addr]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
@@ -1172,6 +1279,152 @@ async function geocodeAddr(addr){
   return null;
 }
 
+// ━━ 컬럼 재설정 ━━
+let resetWb=null,resetRows=[],resetHeaders=[];
+
+async function showResetColModal(){
+  if(!currentProject){showToast('프로젝트를 먼저 선택하세요','err');return;}
+  resetWb=null;resetRows=[];resetHeaders=[];
+  // 화면 초기화
+  ['resetColLoading','resetColNoFile','resetColStep','resetColProgress'].forEach(id=>{
+    document.getElementById(id).style.display='none';
+  });
+  document.getElementById('resetColLoading').style.display='block';
+  showModal('resetColModal');
+
+  // Storage에서 원본 파일 다운로드
+  try{
+    // 프로젝트 폴더에서 original.* 파일 찾기
+    const listR=await sbStore(`object/list/inspection-files`,{
+      method:'POST',
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({prefix:`${currentProject.id}/`,limit:10})
+    });
+    if(!listR.ok)throw new Error('list 실패');
+    const files=await listR.json();
+    const orig=Array.isArray(files)?files.find(f=>f.name&&f.name.startsWith('original.')):null;
+    if(!orig)throw new Error('NO_FILE');
+
+    const ext=orig.name.split('.').pop()||'xlsx';
+    const dlR=await sbStore(`object/inspection-files/${currentProject.id}/${orig.name}`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    if(!dlR.ok)throw new Error('다운로드 실패');
+    const buf=await dlR.arrayBuffer();
+    if(!window.XLSX){loadSheetJS();await sleep(1500);}
+    resetWb=XLSX.read(buf,{type:'array'});
+
+    document.getElementById('resetColFileInfo').textContent=`📊 ${orig.name}`;
+    const sel=document.getElementById('resetSheetSelect');
+    sel.innerHTML=resetWb.SheetNames.map((n,i)=>`<option value="${i}">${n}</option>`).join('');
+    loadResetSheet(0);
+    document.getElementById('resetColLoading').style.display='none';
+    document.getElementById('resetColStep').style.display='block';
+  }catch(e){
+    document.getElementById('resetColLoading').style.display='none';
+    document.getElementById('resetColNoFile').style.display='block';
+  }
+}
+function changeResetSheet(){loadResetSheet(+document.getElementById('resetSheetSelect').value);}
+function loadResetSheet(idx){
+  if(!resetWb)return;
+  const ws=resetWb.Sheets[resetWb.SheetNames[idx]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  let headerRow=0;
+  for(let i=0;i<Math.min(5,rows.length);i++){if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}}
+  resetHeaders=rows[headerRow].map(c=>String(c).trim());
+  resetRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  buildResetColSelects();
+}
+function buildResetColSelects(){
+  const none='<option value="">-- 없음 --</option>';
+  const opts=resetHeaders.map((h,i)=>`<option value="${i}">${h||'(컬럼'+i+')'}</option>`).join('');
+  ['resetColName','resetColAddr','resetColGroup','resetColExtra'].forEach((id,idx)=>{
+    const el=document.getElementById(id);
+    el.innerHTML=(idx>=2?none:'')+opts;
+    const keywords=[['이름','명칭','건물','시설','대상','name','번호','용수'],['주소','도로','지번','위치','addr'],['팀','구역','그룹','형식','형태','group','team'],['비고','추가','기타','결과','검수','extra']];
+    const ki=keywords[idx].findIndex(kw=>resetHeaders.findIndex(h=>h.toLowerCase().includes(kw))>=0);
+    if(ki>=0){const ci=resetHeaders.findIndex(h=>h.toLowerCase().includes(keywords[idx][ki]));if(ci>=0)el.value=String(ci);}
+  });
+  buildResetPreview();
+}
+function buildResetPreview(){
+  const tbl=document.getElementById('resetPreviewTable');
+  tbl.innerHTML='';
+  const tr=document.createElement('tr');
+  resetHeaders.forEach(h=>{const th=document.createElement('th');th.textContent=h;th.style.cssText='padding:4px 8px;background:rgba(255,255,255,.05);font-size:10px;color:var(--mt);white-space:nowrap;border:1px solid var(--bd2)';tr.appendChild(th);});
+  tbl.appendChild(tr);
+  resetRows.slice(0,3).forEach(r=>{
+    const row=document.createElement('tr');
+    r.forEach(c=>{const td=document.createElement('td');td.textContent=String(c).substring(0,20);td.style.cssText='padding:4px 8px;font-size:11px;color:var(--tx);border:1px solid var(--bd2);white-space:nowrap';row.appendChild(td);});
+    tbl.appendChild(row);
+  });
+}
+async function processResetCol(){
+  const ci={name:document.getElementById('resetColName').value,addr:document.getElementById('resetColAddr').value,group:document.getElementById('resetColGroup').value,extra:document.getElementById('resetColExtra').value};
+  if(ci.name===''){showToast('이름 컬럼을 선택하세요','err');return;}
+  if(ci.addr===''){showToast('주소 컬럼을 선택하세요','err');return;}
+  const delDone=document.getElementById('resetDelDone').checked;
+  const delMemo=document.getElementById('resetDelMemo').checked;
+  const delPhotos=document.getElementById('resetDelPhotos').checked;
+
+  document.getElementById('resetColStep').style.display='none';
+  document.getElementById('resetColProgress').style.display='block';
+  const label=document.getElementById('resetColProgressLabel');
+  const bar=document.getElementById('resetColBar');
+  const pid=currentProject.id;
+
+  try{
+    // 1. 선택 항목 삭제
+    if(delPhotos){
+      label.textContent='사진 삭제 중...';
+      // Storage 사진 삭제
+      const photos=Object.values(photoMap).flat();
+      for(const p of photos){
+        const path=p.url.split(`/${PHOTO_BUCKET}/`)[1];
+        if(path)await sbStore(`object/${PHOTO_BUCKET}/${path}`,{method:'DELETE'});
+      }
+      await sb(`inspection_photos?inspection_id=eq.${pid}`,{method:'DELETE'});
+    }
+    if(delMemo){label.textContent='메모 삭제 중...';await sb(`inspection_memo?inspection_id=eq.${pid}`,{method:'DELETE'});}
+    if(delDone){label.textContent='완료 기록 삭제 중...';await sb(`inspection_done?inspection_id=eq.${pid}`,{method:'DELETE'});}
+
+    // 2. 기존 items 삭제
+    label.textContent='기존 항목 삭제 중...';
+    await sb(`inspection_items?inspection_id=eq.${pid}`,{method:'DELETE'});
+
+    // 3. 새 매핑으로 재삽입
+    const parsed=resetRows.map(r=>({
+      name:String(r[+ci.name]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+      address:String(r[+ci.addr]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+      group_name:ci.group!==''?String(r[+ci.group]||'').trim():null,
+      extra:ci.extra!==''?{정보:String(r[+ci.extra]||'').trim()}:null,
+    })).filter(d=>d.name);
+
+    let ok=0;
+    for(let i=0;i<parsed.length;i++){
+      const d=parsed[i];
+      bar.style.width=((i+1)/parsed.length*100)+'%';
+      label.textContent=`(${i+1}/${parsed.length}) ${d.name} 좌표 변환 중...`;
+      let lat=null,lng=null;
+      try{const geo=await geocodeAddr(d.address);if(geo){lat=geo.lat;lng=geo.lng;}}catch{}
+      try{
+        const r=await sb('inspection_items',{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},
+          body:JSON.stringify({inspection_id:pid,name:d.name,address:d.address,group_name:d.group_name||null,lat,lng,extra:d.extra||null})});
+        if(r.ok)ok++;
+      }catch{}
+      if(i%5===0)await sleep(50);
+    }
+    hideModal('resetColModal');
+    showToast(`✅ 재설정 완료 (${ok}/${parsed.length}개)`,'ok');
+    await loadProjectData();
+  }catch(e){
+    showToast('재설정 실패: '+e.message,'err');
+    document.getElementById('resetColProgress').style.display='none';
+    document.getElementById('resetColStep').style.display='block';
+  }
+}
+
 // ━━ 엑셀 출력 ━━
 async function exportExcel(){
   if(!window.XLSX){loadSheetJS();await sleep(1500);}
@@ -1183,13 +1436,22 @@ async function exportExcel(){
     '점검결과':memoMap[d.id]||'',
     '사진수':(photoMap[d.id]?.length)||0,
   }));
+  // 원본목록 시트 — 업로드 당시 데이터를 DB에서 그대로 복원
+  const origRows=items.map(d=>{
+    const row={'이름':d.name,'주소':d.address||''};
+    if(d.group_name)row['그룹']=d.group_name;
+    if(d.extra)Object.entries(d.extra).forEach(([k,v])=>{row[k]=v;});
+    return row;
+  });
   const doneRows=allRows.filter((_,i)=>!!doneMap[items[i].id]);
   const undoneRows=allRows.filter((_,i)=>!doneMap[items[i].id]);
   const wb=XLSX.utils.book_new();
   const setW=(ws,w)=>{ws['!cols']=w.map(v=>({wch:v}));};
+  const ws0=XLSX.utils.json_to_sheet(origRows.length?origRows:[{'안내':'데이터 없음'}]);setW(ws0,[25,40,10,15]);
   const ws1=XLSX.utils.json_to_sheet(allRows);setW(ws1,[25,40,10,8,12,40,5]);
   const ws2=XLSX.utils.json_to_sheet(doneRows.length?doneRows:[{'안내':'완료 없음'}]);setW(ws2,[25,40,10,8,12,40,5]);
   const ws3=XLSX.utils.json_to_sheet(undoneRows.length?undoneRows:[{'안내':'미완료 없음'}]);setW(ws3,[25,40,10,8,12,40,5]);
+  XLSX.utils.book_append_sheet(wb,ws0,'원본목록');
   XLSX.utils.book_append_sheet(wb,ws1,'전체현황');
   XLSX.utils.book_append_sheet(wb,ws2,'점검완료');
   XLSX.utils.book_append_sheet(wb,ws3,'미완료');
