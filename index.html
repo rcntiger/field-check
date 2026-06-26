@@ -52,6 +52,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .project-card-del{position:absolute;top:10px;right:10px;width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--mt);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;opacity:0;transition:opacity .15s}
 .project-card:hover .project-card-del{opacity:1}
 .project-card-del:hover{background:rgba(255,123,114,.15);color:var(--hi)}
+.project-card-edit{position:absolute;top:10px;right:36px;width:24px;height:24px;border-radius:50%;border:none;background:transparent;color:var(--mt);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;opacity:0;transition:opacity .15s}
+.project-card:hover .project-card-edit{opacity:1}
+.project-card-edit:hover{background:rgba(47,129,247,.15);color:var(--ac)}
 .empty-state{text-align:center;padding:60px 20px;color:var(--mt)}
 .empty-state .big{font-size:48px;margin-bottom:12px}
 .empty-state p{font-size:14px;margin-bottom:20px}
@@ -326,6 +329,38 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   <button class="mob-toggle" id="mobToggle" onclick="toggleMobView()">🗺️ 지도 보기</button>
 </div>
 
+<!-- ════ 모달: 프로젝트 수정 ════ -->
+<div class="modal-bg" id="editModal">
+  <div class="modal">
+    <h3>✏️ 프로젝트 수정</h3>
+    <input type="hidden" id="editProjId">
+    <div class="form-row">
+      <label>프로젝트명 *</label>
+      <input type="text" id="editProjName" placeholder="예: 소방용수 검수 2026-06">
+    </div>
+    <div class="form-row">
+      <label>설명 (선택)</label>
+      <textarea id="editProjDesc" placeholder="점검 목적, 대상 지역 등"></textarea>
+    </div>
+    <div class="form-row">
+      <label>보관 기간</label>
+      <select id="editProjExpire" style="padding:8px;background:var(--sur2);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--r);font-size:13px">
+        <option value="">변경 안 함</option>
+        <option value="clear">영구 보관으로 변경</option>
+        <option value="1">오늘부터 1개월</option>
+        <option value="3">오늘부터 3개월</option>
+        <option value="6">오늘부터 6개월</option>
+        <option value="12">오늘부터 1년</option>
+      </select>
+      <div style="font-size:11px;color:var(--mt);margin-top:5px" id="editExpireInfo"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="hideModal('editModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveEditProject()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ 모달: 프로젝트 생성 ════ -->
 <div class="modal-bg" id="createModal">
   <div class="modal">
@@ -367,6 +402,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <div style="font-size:32px;margin-bottom:8px">📊</div>
         <div style="font-size:13px;color:var(--mt)">클릭하여 엑셀 파일을 업로드하세요</div>
         <div style="font-size:11px;color:var(--mt);margin-top:4px">.xlsx .xls 지원</div>
+        <div style="font-size:11px;color:#fb923c;margin-top:6px">※ 암호화된 파일은 해제 후 업로드하세요</div>
         <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this)">
       </div>
       <div style="background:var(--sur2);border-radius:var(--r);padding:12px;font-size:12px;color:var(--mt);line-height:1.8">
@@ -651,6 +687,7 @@ function renderProjects(list){
     card.id='pcard-'+p.id;
     card.innerHTML=`
       <button class="project-card-del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제">✕</button>
+      <button class="project-card-edit" onclick="event.stopPropagation();showEditModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" title="수정">✏️</button>
       <div class="project-card-name">${esc(p.name)}</div>
       <div class="project-card-desc">${esc(p.description||'')}</div>
       <div class="project-card-meta">
@@ -663,7 +700,50 @@ function renderProjects(list){
     grid.appendChild(card);
   });
 }
-function showCreateModal(){document.getElementById('projName').value='';document.getElementById('projDesc').value='';showModal('createModal');}
+function showCreateModal(){document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';showModal('createModal');}
+
+function showEditModal(p){
+  document.getElementById('editProjId').value=p.id;
+  document.getElementById('editProjName').value=p.name||'';
+  document.getElementById('editProjDesc').value=p.description||'';
+  // 현재 만료일 표시
+  const info=document.getElementById('editExpireInfo');
+  if(p.expire_at){
+    const exp=new Date(p.expire_at);
+    const dDay=Math.ceil((exp-new Date())/(1000*60*60*24));
+    info.textContent=`현재: ${exp.toLocaleDateString('ko-KR')} (${dDay>0?'D-'+dDay:'만료됨'})`;
+    info.style.color=dDay<=0?'#ef4444':dDay<=30?'#fb923c':'var(--mt)';
+  }else{
+    info.textContent='현재: 영구 보관';
+    info.style.color='var(--mt)';
+  }
+  document.getElementById('editProjExpire').value='';
+  showModal('editModal');
+}
+async function saveEditProject(){
+  const id=document.getElementById('editProjId').value;
+  const name=document.getElementById('editProjName').value.trim();
+  if(!name){showToast('프로젝트명을 입력하세요','err');return;}
+  const desc=document.getElementById('editProjDesc').value.trim();
+  const expireMonths=document.getElementById('editProjExpire').value;
+  const patch={name,description:desc};
+  if(expireMonths===''){
+    // 선택 안 함 → 기존 유지 (변경 안 함)
+  }else if(expireMonths==='clear'){
+    patch.expire_at=null;
+  }else{
+    const d=new Date();
+    d.setMonth(d.getMonth()+parseInt(expireMonths));
+    patch.expire_at=d.toISOString();
+  }
+  try{
+    const r=await sb(`inspections?id=eq.${id}`,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify(patch)});
+    if(!r.ok)throw new Error();
+    hideModal('editModal');
+    showToast('수정됨','ok');
+    loadProjects();
+  }catch(e){showToast('수정 실패','err');}
+}
 async function createProject(){
   const name=document.getElementById('projName').value.trim();
   if(!name){showToast('프로젝트명을 입력하세요','err');return;}
