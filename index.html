@@ -594,6 +594,7 @@ let searchMarkers=[],mobMapMode=false;
 let memoTimers={};
 
 let currentProject=null;
+let projectList=[];
 let items=[],overlays={};
 let doneMap={},memoMap={},photoMap={};
 let groups=[],filterGroup=new Set(['all']),filterText='';
@@ -657,6 +658,7 @@ async function loadProjects(){
   }
 }
 function renderProjects(list){
+  projectList=list;
   const grid=document.getElementById('projectGrid');
   const empty=document.getElementById('projectEmpty');
   grid.innerHTML='';
@@ -674,12 +676,14 @@ function renderProjects(list){
       const exp=new Date(p.expire_at);
       const dDay=Math.ceil((exp-now)/(1000*60*60*24));
       if(dDay<0){
-        expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨</span>`;
+        expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨 (${exp.toLocaleDateString('ko-KR')})</span>`;
       }else if(dDay<=30){
-        expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay}</span>`;
+        expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${exp.toLocaleDateString('ko-KR')}까지</span>`;
       }else{
-        expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')} 까지</span>`;
+        expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')}까지</span>`;
       }
+    }else{
+      expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 영구 보관</span>`;
     }
 
     const card=document.createElement('div');
@@ -687,7 +691,7 @@ function renderProjects(list){
     card.id='pcard-'+p.id;
     card.innerHTML=`
       <button class="project-card-del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제">✕</button>
-      <button class="project-card-edit" onclick="event.stopPropagation();showEditModal(${JSON.stringify(p).replace(/"/g,'&quot;')})" title="수정">✏️</button>
+      <button class="project-card-edit" onclick="event.stopPropagation();showEditModal('${p.id}')" title="수정">✏️</button>
       <div class="project-card-name">${esc(p.name)}</div>
       <div class="project-card-desc">${esc(p.description||'')}</div>
       <div class="project-card-meta">
@@ -702,7 +706,9 @@ function renderProjects(list){
 }
 function showCreateModal(){document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';showModal('createModal');}
 
-function showEditModal(p){
+function showEditModal(id){
+  const p=projectList.find(x=>x.id===id);
+  if(!p){showToast('프로젝트 정보를 찾을 수 없습니다','err');return;}
   document.getElementById('editProjId').value=p.id;
   document.getElementById('editProjName').value=p.name||'';
   document.getElementById('editProjDesc').value=p.description||'';
