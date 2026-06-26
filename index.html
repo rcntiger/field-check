@@ -198,6 +198,18 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .pgwrap{height:3px;background:var(--sur2);border-radius:2px;overflow:hidden;margin-top:8px;display:none}
 .pgfill{height:100%;background:var(--ac);border-radius:2px;transition:width .1s;width:0}
 .pglabel{font-size:10px;color:var(--mt);margin-top:3px;text-align:center;display:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 사진 바텀시트 */
+.photo-sheet-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9990;align-items:flex-end;justify-content:center}
+.photo-sheet-bg.open{display:flex}
+.photo-sheet{background:#1c2128;border-radius:16px 16px 0 0;padding:20px 20px 36px;width:100%;max-width:480px;animation:slideUp .2s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.photo-sheet-title{font-size:13px;font-weight:700;color:var(--mt);text-align:center;margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em}
+.photo-sheet-btn{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1px solid var(--bd2);border-radius:10px;background:var(--sur2);color:var(--tx);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px;transition:all .15s}
+.photo-sheet-btn:hover{background:var(--sur3);border-color:var(--ac)}
+.photo-sheet-btn .ps-icon{font-size:22px;width:30px;text-align:center}
+.photo-sheet-cancel{width:100%;padding:12px;border:none;border-radius:10px;background:var(--sur3);color:var(--mt);font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.photo-sheet-cancel:hover{color:var(--tx)}
 </style>
 </head>
 <body>
@@ -401,6 +413,25 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   <img id="photoViewerImg" src="">
   <div class="photo-viewer-caption" id="photoViewerCaption"></div>
 </div>
+
+<!-- 사진 바텀시트 -->
+<div class="photo-sheet-bg" id="photoSheetBg" onclick="closePhotoSheet(event)">
+  <div class="photo-sheet" onclick="event.stopPropagation()">
+    <div class="photo-sheet-title">사진 추가</div>
+    <button class="photo-sheet-btn" onclick="triggerPhotoInput('camera')">
+      <span class="ps-icon">📷</span>
+      <div><div>카메라로 촬영</div><div style="font-size:11px;color:var(--mt);margin-top:2px">현장 사진을 바로 찍기</div></div>
+    </button>
+    <button class="photo-sheet-btn" onclick="triggerPhotoInput('gallery')">
+      <span class="ps-icon">🖼️</span>
+      <div><div>갤러리에서 선택</div><div style="font-size:11px;color:var(--mt);margin-top:2px">저장된 사진 불러오기</div></div>
+    </button>
+    <button class="photo-sheet-cancel" onclick="closePhotoSheet()">취소</button>
+  </div>
+</div>
+<!-- 카메라 촬영용 / 갤러리용 hidden input -->
+<input type="file" id="photoInputCamera" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoInput(this)">
+<input type="file" id="photoInputGallery" accept="image/*" multiple style="display:none" onchange="handlePhotoInput(this)">
 
 <div class="toast" id="toast"></div>
 
@@ -782,7 +813,7 @@ function renderPhotoGrid(idx,photos){
       <button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button>
     </div>`).join('');
   grid.innerHTML=thumbsHtml+`
-    <div class="iw-photo-add" onclick="openPhotoPanel(${idx})">
+    <div class="iw-photo-add" onclick="openPhotoSheet(${idx})">
       <span style="font-size:20px">📷</span>
       <span>사진 추가</span>
     </div>`;
@@ -858,17 +889,42 @@ async function deleteMemoNow(idx){
   showToast('메모 삭제됨','ok');
 }
 
+// ━━ 이미지 압축 (Canvas) ━━
+// 장변 1280px 이하, JPEG quality 0.75 → 원본 대비 약 5~10% 용량
+function compressImage(file){
+  return new Promise((resolve)=>{
+    const MAX=1280,Q=0.75;
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>MAX||h>MAX){const s=Math.min(MAX/w,MAX/h);w=Math.round(w*s);h=Math.round(h*s);}
+        const canvas=document.createElement('canvas');
+        canvas.width=w;canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        canvas.toBlob(blob=>{
+          // 압축 결과가 오히려 크면 원본 사용
+          resolve(blob&&blob.size<file.size?blob:file);
+        },'image/jpeg',Q);
+      };
+      img.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ━━ 사진 ━━
-async function uploadPhoto(idx,input){
-  const d=items[idx];if(!d||!currentProject||!input.files[0])return;
-  const file=input.files[0];
-  if(file.size>5*1024*1024){showToast('사진은 5MB 이하만 가능합니다','err');return;}
-  showToast('사진 업로드 중...','');
+async function uploadPhotoFile(idx,file){
+  const d=items[idx];if(!d||!currentProject||!file)return;
+  showToast('사진 압축 중...','');
+  let upload=file;
+  try{upload=await compressImage(file);}catch{}
+  const kb=Math.round(upload.size/1024);
+  showToast(`업로드 중... (${kb}KB)`,'');
   try{
-    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-    const safeExt=['jpg','jpeg','png','gif','webp','bmp'].includes(ext)?ext:'jpg';
-    const path=`${d.id}/${Date.now()}.${safeExt}`;
-    const r=await sbStore(`object/${PHOTO_BUCKET}/${path}`,{method:'POST',body:file,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type||'image/jpeg'}});
+    const path=`${d.id}/${Date.now()}.jpg`;
+    const r=await sbStore(`object/${PHOTO_BUCKET}/${path}`,{method:'POST',body:upload,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'image/jpeg'}});
     if(!r.ok){const errText=await r.text();throw new Error('Storage 오류('+r.status+'): '+errText);}
     const url=`${SB_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
     const r2=await sb('inspection_photos',{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},
@@ -877,11 +933,15 @@ async function uploadPhoto(idx,input){
     if(!photoMap[d.id])photoMap[d.id]=[];
     photoMap[d.id].push(photo);
     renderPhotoGrid(idx,photoMap[d.id]);
-    // 사진 수 업데이트
     const header=document.querySelector(`#photoGrid-${idx}`)?.previousElementSibling;
     if(header)header.textContent=`📷 사진 (${photoMap[d.id].length})`;
-    showToast('사진 저장됨','ok');
+    showToast(`사진 저장됨 (${kb}KB)`,'ok');
   }catch(e){showToast('업로드 실패: '+e.message,'err');console.error('uploadPhoto error:',e);}
+}
+// 하위 호환 (기존 inline onchange 혹시 남아있을 경우)
+async function uploadPhoto(idx,input){
+  if(!input.files[0])return;
+  await uploadPhotoFile(idx,input.files[0]);
   input.value='';
 }
 async function deletePhoto(idx,photoId,url){
@@ -901,6 +961,38 @@ function openPhotoViewer(url,caption){
   document.getElementById('photoViewer').classList.add('open');
 }
 function closePhotoViewer(){document.getElementById('photoViewer').classList.remove('open');}
+
+// ━━ 사진 바텀시트 ━━
+let photoSheetIdx=-1;
+function openPhotoSheet(idx){
+  photoSheetIdx=idx;
+  document.getElementById('photoSheetBg').classList.add('open');
+}
+function closePhotoSheet(e){
+  if(e&&e.target!==document.getElementById('photoSheetBg'))return;
+  document.getElementById('photoSheetBg').classList.remove('open');
+  photoSheetIdx=-1;
+}
+function triggerPhotoInput(mode){
+  document.getElementById('photoSheetBg').classList.remove('open');
+  if(mode==='camera'){
+    const el=document.getElementById('photoInputCamera');
+    el.value='';el.click();
+  }else{
+    const el=document.getElementById('photoInputGallery');
+    el.value='';el.click();
+  }
+}
+async function handlePhotoInput(input){
+  if(photoSheetIdx<0||!input.files.length)return;
+  const idx=photoSheetIdx;
+  photoSheetIdx=-1;
+  const files=Array.from(input.files);
+  for(const file of files){
+    await uploadPhotoFile(idx,file);
+  }
+  input.value='';
+}
 
 // ━━ 목록 렌더 ━━
 function renderList(){
