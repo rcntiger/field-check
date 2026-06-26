@@ -404,19 +404,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 
 <div class="toast" id="toast"></div>
 
-<!-- 사진 업로드 패널 (Kakao overlay 외부) -->
-<div id="photoPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center">
-  <div style="background:#fff;border-radius:16px 16px 0 0;padding:24px;width:100%;max-width:480px;text-align:center">
-    <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px">📷 사진 추가</div>
-    <div style="font-size:12px;color:#64748b;margin-bottom:20px" id="photoPanelName"></div>
-    <label style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#3b82f6;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
-      📁 파일 선택
-      <input type="file" id="globalPhotoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
-    </label>
-    <br>
-    <button onclick="closePhotoPanel()" style="margin-top:8px;padding:10px 24px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">취소</button>
-  </div>
-</div>
+
 
 <script>
 // ━━ 상수 ━━
@@ -449,24 +437,6 @@ let excelRows=[],excelHeaders=[];
 // ━━ 유틸 ━━
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-// 사진 업로드 패널
-let photoPanelIdx=-1;
-function openPhotoPanel(idx){
-  photoPanelIdx=idx;
-  const d=items[idx];
-  document.getElementById('photoPanelName').textContent=d?d.name:'';
-  document.getElementById('globalPhotoInput').value='';
-  document.getElementById('photoPanel').style.display='flex';
-}
-function closePhotoPanel(){
-  document.getElementById('photoPanel').style.display='none';
-  photoPanelIdx=-1;
-}
-function onPhotoSelected(input){
-  if(!input.files[0]||photoPanelIdx<0)return;
-  closePhotoPanel();
-  uploadPhoto(photoPanelIdx,input);
-}
 
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast show ${type}`;setTimeout(()=>t.className='toast',4000);}
 function showModal(id){document.getElementById(id).classList.add('open');}
@@ -721,7 +691,7 @@ function addMarker(idx,d){
   iwEl.className='iw-wrap';
   ['mousedown','mousemove','dblclick','wheel','touchstart','touchmove'].forEach(ev=>iwEl.addEventListener(ev,e=>e.stopPropagation()));
 
-  const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.4,zIndex:100});
+  const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.1,zIndex:100});
   renderPopup(iwEl,idx,d,iw);
 
   el.addEventListener('click',()=>{
@@ -784,7 +754,7 @@ function renderPopup(iwEl,idx,d,iw){
     <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:6px">📷 사진 (${photos.length})</div>
     <div class="iw-photos" id="photoGrid-${idx}">
       ${photos.map(p=>`<div class="iw-photo-thumb"><img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')"><button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button></div>`).join('')}
-      <div class="iw-photo-add" onclick="openPhotoPanel(${idx})"><span style="font-size:20px">📷</span><span>사진 추가</span></div>
+      <label class="iw-photo-add" style="cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadPhoto(${idx},this)"><span style="font-size:20px">📷</span><span>사진 추가</span></label>
     </div>
 
     <div class="iw-divider"></div>
