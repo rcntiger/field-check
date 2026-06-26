@@ -338,6 +338,16 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
       <label>설명 (선택)</label>
       <textarea id="projDesc" placeholder="점검 목적, 대상 지역 등"></textarea>
     </div>
+    <div class="form-row">
+      <label>보관 기간 (선택)</label>
+      <select id="projExpire" style="padding:8px;background:var(--sur2);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--r);font-size:13px">
+        <option value="">영구 보관</option>
+        <option value="1">1개월</option>
+        <option value="3">3개월</option>
+        <option value="6">6개월</option>
+        <option value="12">1년</option>
+      </select>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-ghost" onclick="hideModal('createModal')">취소</button>
       <button class="btn btn-primary" onclick="createProject()">만들기</button>
@@ -355,7 +365,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
     <div id="uploadStep1">
       <div style="border:2px dashed var(--bd2);border-radius:var(--r);padding:30px;text-align:center;cursor:pointer;margin-bottom:16px" onclick="document.getElementById('excelFile').click()">
         <div style="font-size:32px;margin-bottom:8px">📊</div>
-        <div style="font-size:13px;color:var(--mt)">엑셀 파일을 클릭해서 선택하세요</div>
+        <div style="font-size:13px;color:var(--mt)">클릭하여 엑셀 파일을 업로드하세요</div>
         <div style="font-size:11px;color:var(--mt);margin-top:4px">.xlsx .xls 지원</div>
         <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this)">
       </div>
@@ -620,6 +630,22 @@ function renderProjects(list){
     const total=p._total||0;
     const done=p._done||0;
     const pct=total?Math.round(done/total*100):0;
+
+    // 만료일 계산
+    let expireBadge='';
+    if(p.expire_at){
+      const now=new Date();
+      const exp=new Date(p.expire_at);
+      const dDay=Math.ceil((exp-now)/(1000*60*60*24));
+      if(dDay<0){
+        expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨</span>`;
+      }else if(dDay<=30){
+        expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay}</span>`;
+      }else{
+        expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')} 까지</span>`;
+      }
+    }
+
     const card=document.createElement('div');
     card.className='project-card';
     card.id='pcard-'+p.id;
@@ -631,6 +657,7 @@ function renderProjects(list){
         <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${total}개소</span>
         <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${done}완료 ${pct}%</span>
         <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+        ${expireBadge}
       </div>`;
     card.onclick=()=>openProject(p);
     grid.appendChild(card);
@@ -641,8 +668,16 @@ async function createProject(){
   const name=document.getElementById('projName').value.trim();
   if(!name){showToast('프로젝트명을 입력하세요','err');return;}
   const desc=document.getElementById('projDesc').value.trim();
+  const expireMonths=document.getElementById('projExpire').value;
+  let expire_at=null;
+  if(expireMonths){
+    const d=new Date();
+    d.setMonth(d.getMonth()+parseInt(expireMonths));
+    expire_at=d.toISOString();
+  }
   try{
-    const r=await sb('inspections',{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},body:JSON.stringify({name,description:desc})});
+    const r=await sb('inspections',{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},
+      body:JSON.stringify({name,description:desc,expire_at})});
     if(!r.ok)throw new Error();
     const [proj]=await r.json();
     hideModal('createModal');
@@ -651,12 +686,72 @@ async function createProject(){
   }catch(e){showToast('생성 실패','err');}
 }
 async function deleteProject(id,name){
-  if(!confirm(`"${name}" 프로젝트를 삭제하시겠습니까?\n(모든 점검 데이터가 삭제됩니다)`))return;
+  if(!confirm(`"${name}" 프로젝트를 삭제하시겠습니까?\n(모든 점검 데이터 및 사진, 원본 파일이 삭제됩니다)`))return;
   try{
+    showToast('삭제 중...','');
+
+    // 1. Storage 사진 삭제
+    try{
+      const listR=await sbStore(`object/list/${PHOTO_BUCKET}`,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({prefix:``,limit:1000})
+      });
+      if(listR.ok){
+        // item_id 기준 폴더 구조 → inspection_items에서 id 목록 가져오기
+        const itemsR=await sb(`inspection_items?inspection_id=eq.${id}&select=id`);
+        if(itemsR.ok){
+          const itemIds=(await itemsR.json()).map(i=>i.id);
+          for(const itemId of itemIds){
+            const folderR=await sbStore(`object/list/${PHOTO_BUCKET}`,{
+              method:'POST',
+              headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+              body:JSON.stringify({prefix:`${itemId}/`,limit:100})
+            });
+            if(folderR.ok){
+              const files=await folderR.json();
+              if(Array.isArray(files)&&files.length){
+                await sbStore(`object/${PHOTO_BUCKET}`,{
+                  method:'DELETE',
+                  headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+                  body:JSON.stringify({prefixes:files.map(f=>`${itemId}/${f.name}`)})
+                });
+              }
+            }
+          }
+        }
+      }
+    }catch(e){console.warn('사진 Storage 삭제 실패',e);}
+
+    // 2. Storage 원본 엑셀 삭제
+    try{
+      const listR=await sbStore(`object/list/inspection-files`,{
+        method:'POST',
+        headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+        body:JSON.stringify({prefix:`${id}/`,limit:10})
+      });
+      if(listR.ok){
+        const files=await listR.json();
+        if(Array.isArray(files)&&files.length){
+          await sbStore(`object/inspection-files`,{
+            method:'DELETE',
+            headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},
+            body:JSON.stringify({prefixes:files.map(f=>`${id}/${f.name}`)})
+          });
+        }
+      }
+    }catch(e){console.warn('원본 엑셀 Storage 삭제 실패',e);}
+
+    // 3. DB 삭제 (CASCADE 없을 경우 대비 순서대로)
+    await sb(`inspection_photos?inspection_id=eq.${id}`,{method:'DELETE'});
+    await sb(`inspection_memo?inspection_id=eq.${id}`,{method:'DELETE'});
+    await sb(`inspection_done?inspection_id=eq.${id}`,{method:'DELETE'});
+    await sb(`inspection_items?inspection_id=eq.${id}`,{method:'DELETE'});
     await sb(`inspections?id=eq.${id}`,{method:'DELETE'});
-    showToast('삭제됨','ok');
+
+    showToast('프로젝트 삭제 완료','ok');
     loadProjects();
-  }catch(e){showToast('삭제 실패','err');}
+  }catch(e){showToast('삭제 실패: '+e.message,'err');}
 }
 
 // ━━ 프로젝트 열기 ━━
