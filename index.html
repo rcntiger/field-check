@@ -719,7 +719,7 @@ function addMarker(idx,d){
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
-  ['mousedown','mousemove','mouseup','dblclick','touchstart','touchmove','touchend'].forEach(ev=>iwEl.addEventListener(ev,e=>e.stopPropagation()));
+  ['mousedown','mousemove','dblclick','wheel','touchstart','touchmove'].forEach(ev=>iwEl.addEventListener(ev,e=>e.stopPropagation()));
 
   const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.4,zIndex:100});
   renderPopup(iwEl,idx,d,iw);
