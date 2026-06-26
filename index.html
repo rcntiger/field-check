@@ -452,23 +452,41 @@ document.addEventListener('DOMContentLoaded',()=>{
 async function loadProjects(){
   try{
     const r=await sb('inspections?select=*&order=created_at.desc');
-    if(!r.ok){const t=await r.text();throw new Error(r.status+' '+t);}
+    if(!r.ok){const t=await r.text();throw new Error(r.status+': '+t);}
     const projs=await r.json();
-    // 각 프로젝트의 건수·완료수 로드
-    for(const p of projs){
+    if(!Array.isArray(projs))throw new Error('응답 형식 오류');
+    // 먼저 목록 표시 (건수 없이)
+    projs.forEach(p=>{p._total='-';p._done='-';});
+    renderProjects(projs);
+    // 건수 비동기 로드 (실패해도 목록은 유지)
+    projs.forEach(async p=>{
       try{
         const [ri,rd]=await Promise.all([
           sb(`inspection_items?inspection_id=eq.${p.id}&select=id`),
           sb(`inspection_done?inspection_id=eq.${p.id}&select=item_id`)
         ]);
-        const items=await ri.json();
-        const done=await rd.json();
-        p._total=Array.isArray(items)?items.length:0;
-        p._done=Array.isArray(done)?done.length:0;
-      }catch{p._total=0;p._done=0;}
-    }
-    renderProjects(projs);
-  }catch(e){showToast('프로젝트 로드 실패: '+e.message,'err');console.error(e);}
+        if(ri.ok&&rd.ok){
+          const items=await ri.json();
+          const done=await rd.json();
+          p._total=Array.isArray(items)?items.length:0;
+          p._done=Array.isArray(done)?done.length:0;
+          // 카드 업데이트
+          const card=document.getElementById('pcard-'+p.id);
+          if(card){
+            const pct=p._total?Math.round(p._done/p._total*100):0;
+            const meta=card.querySelector('.project-card-meta');
+            if(meta)meta.innerHTML=`
+              <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${p._total}개소</span>
+              <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${p._done}완료 ${pct}%</span>
+              <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>`;
+          }
+        }
+      }catch(e){console.warn('건수 로드 실패',p.id,e);}
+    });
+  }catch(e){
+    showToast('프로젝트 로드 실패: '+e.message,'err');
+    console.error('loadProjects 오류:',e);
+  }
 }
 function renderProjects(list){
   const grid=document.getElementById('projectGrid');
@@ -482,6 +500,7 @@ function renderProjects(list){
     const pct=total?Math.round(done/total*100):0;
     const card=document.createElement('div');
     card.className='project-card';
+    card.id='pcard-'+p.id;
     card.innerHTML=`
       <button class="project-card-del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제">✕</button>
       <div class="project-card-name">${esc(p.name)}</div>
