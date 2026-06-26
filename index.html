@@ -403,7 +403,20 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 </div>
 
 <div class="toast" id="toast"></div>
-<input type="file" id="globalPhotoInput" accept="image/*" style="display:none">
+
+<!-- 사진 업로드 패널 (Kakao overlay 외부) -->
+<div id="photoPanel" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.6);align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:16px 16px 0 0;padding:24px;width:100%;max-width:480px;text-align:center">
+    <div style="font-size:14px;font-weight:700;color:#0f172a;margin-bottom:6px">📷 사진 추가</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:20px" id="photoPanelName"></div>
+    <label style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#3b82f6;color:#fff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">
+      📁 파일 선택
+      <input type="file" id="globalPhotoInput" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
+    </label>
+    <br>
+    <button onclick="closePhotoPanel()" style="margin-top:8px;padding:10px 24px;background:#f1f5f9;color:#64748b;border:none;border-radius:10px;font-size:13px;cursor:pointer">취소</button>
+  </div>
+</div>
 
 <script>
 // ━━ 상수 ━━
@@ -436,6 +449,25 @@ let excelRows=[],excelHeaders=[];
 // ━━ 유틸 ━━
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// 사진 업로드 패널
+let photoPanelIdx=-1;
+function openPhotoPanel(idx){
+  photoPanelIdx=idx;
+  const d=items[idx];
+  document.getElementById('photoPanelName').textContent=d?d.name:'';
+  document.getElementById('globalPhotoInput').value='';
+  document.getElementById('photoPanel').style.display='flex';
+}
+function closePhotoPanel(){
+  document.getElementById('photoPanel').style.display='none';
+  photoPanelIdx=-1;
+}
+function onPhotoSelected(input){
+  if(!input.files[0]||photoPanelIdx<0)return;
+  closePhotoPanel();
+  uploadPhoto(photoPanelIdx,input);
+}
+
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast show ${type}`;setTimeout(()=>t.className='toast',4000);}
 function showModal(id){document.getElementById(id).classList.add('open');}
 function hideModal(id){document.getElementById(id).classList.remove('open');}
@@ -782,14 +814,7 @@ function renderPhotoGrid(idx,photos){
   const addBtn=document.createElement('div');
   addBtn.className='iw-photo-add';
   addBtn.innerHTML=`<span style="font-size:20px">📷</span><span>사진 추가</span>`;
-  addBtn.addEventListener('click',(e)=>{
-    e.stopPropagation();
-    e.preventDefault();
-    const inp=document.getElementById('globalPhotoInput');
-    inp.value='';
-    inp.onchange=function(){if(this.files[0])uploadPhoto(idx,this);};
-    inp.click();
-  });
+  addBtn.addEventListener('click',(e)=>{e.stopPropagation();openPhotoPanel(idx);});
   grid.appendChild(addBtn);
 }
 
