@@ -403,6 +403,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 </div>
 
 <div class="toast" id="toast"></div>
+<input type="file" id="globalPhotoInput" accept="image/*" style="display:none">
 
 <script>
 // ━━ 상수 ━━
@@ -778,16 +779,17 @@ function renderPhotoGrid(idx,photos){
     grid.appendChild(thumb);
   });
   // 추가 버튼
-  const fileInput=document.createElement('input');
-  fileInput.type='file';fileInput.accept='image/*';fileInput.style.display='none';
-  fileInput.id=`photoInput-${idx}`;
-  fileInput.addEventListener('change',function(){uploadPhoto(idx,this);});
-  document.body.appendChild(fileInput);
-
   const addBtn=document.createElement('div');
   addBtn.className='iw-photo-add';
   addBtn.innerHTML=`<span style="font-size:20px">📷</span><span>사진 추가</span>`;
-  addBtn.addEventListener('click',(e)=>{e.stopPropagation();fileInput.click();});
+  addBtn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    e.preventDefault();
+    const inp=document.getElementById('globalPhotoInput');
+    inp.value='';
+    inp.onchange=function(){if(this.files[0])uploadPhoto(idx,this);};
+    inp.click();
+  });
   grid.appendChild(addBtn);
 }
 
@@ -868,10 +870,11 @@ async function uploadPhoto(idx,input){
   if(file.size>5*1024*1024){showToast('사진은 5MB 이하만 가능합니다','err');return;}
   showToast('사진 업로드 중...','');
   try{
-    const ext=file.name.split('.').pop()||'jpg';
-    const path=`${d.id}/${Date.now()}.${ext}`;
-    const r=await sbStore(`object/${PHOTO_BUCKET}/${path}`,{method:'POST',body:file,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type}});
-    if(!r.ok)throw new Error('upload fail');
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const safeExt=['jpg','jpeg','png','gif','webp','bmp'].includes(ext)?ext:'jpg';
+    const path=`${d.id}/${Date.now()}.${safeExt}`;
+    const r=await sbStore(`object/${PHOTO_BUCKET}/${path}`,{method:'POST',body:file,headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':file.type||'image/jpeg'}});
+    if(!r.ok){const errText=await r.text();throw new Error('Storage 오류('+r.status+'): '+errText);}
     const url=`${SB_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
     const r2=await sb('inspection_photos',{method:'POST',headers:{...SB_HDR,'Prefer':'return=representation'},
       body:JSON.stringify({item_id:d.id,inspection_id:currentProject.id,url,caption:''})});
@@ -883,7 +886,7 @@ async function uploadPhoto(idx,input){
     const header=document.querySelector(`#photoGrid-${idx}`)?.previousElementSibling;
     if(header)header.textContent=`📷 사진 (${photoMap[d.id].length})`;
     showToast('사진 저장됨','ok');
-  }catch(e){showToast('업로드 실패','err');}
+  }catch(e){showToast('업로드 실패: '+e.message,'err');console.error('uploadPhoto error:',e);}
   input.value='';
 }
 async function deletePhoto(idx,photoId,url){
