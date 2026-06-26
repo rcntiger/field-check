@@ -759,9 +759,16 @@ function renderPhotoGrid(idx,photos){
     grid.appendChild(thumb);
   });
   // 추가 버튼
-  const addBtn=document.createElement('label');
+  const fileInput=document.createElement('input');
+  fileInput.type='file';fileInput.accept='image/*';fileInput.style.display='none';
+  fileInput.id=`photoInput-${idx}`;
+  fileInput.addEventListener('change',function(){uploadPhoto(idx,this);});
+  document.body.appendChild(fileInput);
+
+  const addBtn=document.createElement('div');
   addBtn.className='iw-photo-add';
-  addBtn.innerHTML=`<input type="file" accept="image/*" capture="environment" style="display:none" onchange="uploadPhoto(${idx},this)"><span style="font-size:20px">📷</span><span>사진 추가</span>`;
+  addBtn.innerHTML=`<span style="font-size:20px">📷</span><span>사진 추가</span>`;
+  addBtn.addEventListener('click',(e)=>{e.stopPropagation();fileInput.click();});
   grid.appendChild(addBtn);
 }
 
