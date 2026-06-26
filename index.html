@@ -178,8 +178,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .iw-photo-thumb img{width:100%;height:100%;object-fit:cover}
 .iw-photo-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;opacity:0;transition:opacity .15s}
 .iw-photo-thumb:hover .iw-photo-del{opacity:1}
-.iw-photo-add{aspect-ratio:1;border-radius:5px;border:2px dashed #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:10px;color:#94a3b8;gap:2px;transition:all .15s}
+.iw-photo-add{aspect-ratio:1;border-radius:5px;border:1.5px dashed #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:9px;color:#94a3b8;gap:1px;transition:all .15s}
 .iw-photo-add:hover{border-color:#3b82f6;color:#3b82f6;background:#f0f9ff}
+.iw-photo-add span:first-child{font-size:14px}
 .iw-navi-row{display:grid;grid-template-columns:1fr auto;gap:4px}
 .iw-navi-sel{padding:5px 6px;border:1px solid #fde68a;border-radius:6px;font-size:10px;background:#fffbeb;color:#92400e;outline:none}
 .iw-navi-btn{padding:6px 10px;border:1px solid #fde68a;border-radius:6px;font-size:11px;cursor:pointer;background:#fffbeb;color:#92400e;font-weight:600}
@@ -851,15 +852,10 @@ function renderPopup(iwEl,idx,d,iw){
     ${extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
     <div class="iw-divider"></div>
 
-    <button class="iw-btn done-btn${isDone?' is-done':''}" id="doneBtn-${idx}" onclick="toggleDone(${idx})">
-      ${isDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭'}
-    </button>
     <div id="dateRow-${idx}" style="display:${isDone?'flex':'none'}" class="iw-date-row">
       <label>📅 점검일자</label>
       <input type="date" value="${doneDate}" onchange="updateDoneDate(${idx},this.value)">
     </div>
-
-    <div class="iw-divider"></div>
 
     <div class="iw-memo">
       <div class="iw-memo-header">
@@ -878,7 +874,6 @@ function renderPopup(iwEl,idx,d,iw){
 
     <div class="iw-divider"></div>
 
-    <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:6px">📷 사진 (${photos.length})</div>
     <div class="iw-photos" id="photoGrid-${idx}">
       ${photos.map(p=>`<div class="iw-photo-thumb"><img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')"><button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button></div>`).join('')}
       <label class="iw-photo-add" style="cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadPhoto(${idx},this)"><span style="font-size:20px">📷</span><span>사진 추가</span></label>
@@ -893,7 +888,13 @@ function renderPopup(iwEl,idx,d,iw){
         <option value="sh">🚒 시흥119</option>
       </select>
       <button class="iw-navi-btn" onclick="openNavi(${d.lat},${d.lng},'${d.name.replace(/'/g,'').substring(0,15)}',document.getElementById('naviSel-${idx}').value)">🗺️ 길찾기</button>
-    </div>`;
+    </div>
+
+    <div class="iw-divider"></div>
+
+    <button class="iw-btn done-btn${isDone?' is-done':''}" id="doneBtn-${idx}" onclick="toggleDone(${idx})">
+      ${isDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭'}
+    </button>`;
 
   renderPhotoGrid(idx,photos);
 }
@@ -910,8 +911,8 @@ function renderPhotoGrid(idx,photos){
     </div>`).join('');
   grid.innerHTML=thumbsHtml+`
     <div class="iw-photo-add" onclick="openPhotoSheet(${idx})">
-      <span style="font-size:20px">📷</span>
-      <span>사진 추가</span>
+      <span>📷</span>
+      <span>추가</span>
     </div>`;
 }
 
@@ -1029,8 +1030,6 @@ async function uploadPhotoFile(idx,file){
     if(!photoMap[d.id])photoMap[d.id]=[];
     photoMap[d.id].push(photo);
     renderPhotoGrid(idx,photoMap[d.id]);
-    const header=document.querySelector(`#photoGrid-${idx}`)?.previousElementSibling;
-    if(header)header.textContent=`📷 사진 (${photoMap[d.id].length})`;
     showToast(`사진 저장됨 (${kb}KB)`,'ok');
   }catch(e){showToast('업로드 실패: '+e.message,'err');console.error('uploadPhoto error:',e);}
 }
