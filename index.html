@@ -330,7 +330,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 <!-- ════ 모달: 엑셀 업로드 ════ -->
 <div class="modal-bg" id="uploadModal">
   <div class="modal" style="max-width:600px">
-    <h3>📂 엑셀 업로드</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0">📂 엑셀 업로드</h3>
+      <button onclick="hideModal('uploadModal')" style="background:none;border:none;color:var(--mt);font-size:22px;cursor:pointer;line-height:1;padding:2px 6px">✕</button>
+    </div>
     <div id="uploadStep1">
       <div style="border:2px dashed var(--bd2);border-radius:var(--r);padding:30px;text-align:center;cursor:pointer;margin-bottom:16px" onclick="document.getElementById('excelFile').click()">
         <div style="font-size:32px;margin-bottom:8px">📊</div>
@@ -345,7 +348,13 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
       </div>
     </div>
     <div id="uploadStep2" style="display:none">
-      <div style="font-size:12px;color:var(--mt);margin-bottom:10px" id="uploadFileInfo"></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--mt);flex:1" id="uploadFileInfo"></div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          <label style="font-size:11px;color:var(--mt)">시트:</label>
+          <select id="sheetSelect" onchange="changeSheet()" style="padding:4px 7px;font-size:11px;background:var(--sur2);border:1px solid var(--bd2);color:var(--tx);border-radius:5px"></select>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <div class="form-row" style="margin:0">
           <label>이름 컬럼 *</label>
@@ -920,22 +929,40 @@ function loadSheetJS(){
   s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
   document.head.appendChild(s);
 }
+let currentWb=null;
+
 function handleExcelFile(input){
   const file=input.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{
-    const wb=XLSX.read(e.target.result,{type:'binary'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    if(rows.length<2){showToast('데이터가 너무 적습니다','err');return;}
-    excelHeaders=rows[0].map(String);
-    excelRows=rows.slice(1).filter(r=>r.some(c=>String(c).trim()));
-    document.getElementById('uploadFileInfo').textContent=`📊 ${file.name} · ${excelRows.length}행`;
-    buildColSelects();
+    currentWb=XLSX.read(e.target.result,{type:'binary'});
+    // 시트 선택 옵션 구성
+    const sel=document.getElementById('sheetSelect');
+    sel.innerHTML=currentWb.SheetNames.map((n,i)=>`<option value="${i}">${n}</option>`).join('');
+    document.getElementById('uploadFileInfo').textContent=`📊 ${file.name}`;
+    loadSheet(0);
     document.getElementById('uploadStep1').style.display='none';
     document.getElementById('uploadStep2').style.display='block';
   };
   reader.readAsBinaryString(file);
+}
+function changeSheet(){
+  const idx=+document.getElementById('sheetSelect').value;
+  loadSheet(idx);
+}
+function loadSheet(idx){
+  if(!currentWb)return;
+  const ws=currentWb.Sheets[currentWb.SheetNames[idx]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  // 헤더 행 자동 탐지 (첫 비어있지 않은 행)
+  let headerRow=0;
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}
+  }
+  excelHeaders=rows[headerRow].map(c=>String(c).trim());
+  excelRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  document.getElementById('uploadFileInfo').textContent=`📊 ${currentWb.SheetNames[idx]} · ${excelRows.length}행`;
+  buildColSelects();
 }
 function buildColSelects(){
   const none='<option value="">-- 없음 --</option>';
@@ -944,7 +971,7 @@ function buildColSelects(){
     const el=document.getElementById(id);
     el.innerHTML=(idx>=2?none:'')+opts;
     // 자동 매핑
-    const keywords=[['이름','명칭','건물','시설','대상','name'],['주소','도로','지번','addr'],['팀','구역','그룹','group','team'],['비고','추가','기타','extra']];
+    const keywords=[['이름','명칭','건물','시설','대상','name','번호','용수'],['주소','도로','지번','위치','addr'],['팀','구역','그룹','형식','형태','group','team'],['비고','추가','기타','결과','검수','extra']];
     const ki=keywords[idx].findIndex(kw=>excelHeaders.findIndex(h=>h.toLowerCase().includes(kw))>=0);
     if(ki>=0){const ci=excelHeaders.findIndex(h=>h.toLowerCase().includes(keywords[idx][ki]));if(ci>=0)el.value=String(ci);}
   });
@@ -970,8 +997,8 @@ async function processUpload(){
   document.getElementById('uploadStep3').style.display='block';
 
   const parsed=excelRows.map(r=>({
-    name:String(r[+ci.name]||'').trim(),
-    address:String(r[+ci.addr]||'').trim(),
+    name:String(r[+ci.name]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+    address:String(r[+ci.addr]||'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
     group_name:ci.group!==''?String(r[+ci.group]||'').trim():null,
     extra:ci.extra!==''?{정보:String(r[+ci.extra]||'').trim()}:null,
   })).filter(d=>d.name);
@@ -1003,11 +1030,14 @@ async function processUpload(){
   await loadProjectData();
 }
 async function geocodeAddr(addr){
-  // 도로명 주소 시도
-  const r=await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(addr)}&size=1`,{headers:{Authorization:'KakaoAK '+REST_KEY}});
+  if(!addr)return null;
+  // 도로명/지번이 짧으면 금천구 추가
+  const fullAddr=addr.includes('서울')||addr.includes('금천')?addr:'서울 금천구 '+addr;
+  // 주소 검색
+  const r=await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(fullAddr)}&size=1`,{headers:{Authorization:'KakaoAK '+REST_KEY}});
   if(r.ok){const d=await r.json();if(d.documents?.[0])return{lat:+d.documents[0].y,lng:+d.documents[0].x};}
   // 키워드 검색 폴백
-  const r2=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(addr)}&size=1`,{headers:{Authorization:'KakaoAK '+REST_KEY}});
+  const r2=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(fullAddr)}&size=1`,{headers:{Authorization:'KakaoAK '+REST_KEY}});
   if(r2.ok){const d2=await r2.json();if(d2.documents?.[0])return{lat:+d2.documents[0].y,lng:+d2.documents[0].x};}
   await sleep(80);
   return null;
