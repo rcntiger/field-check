@@ -782,7 +782,10 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-divider"></div>
 
     <div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:6px">📷 사진 (${photos.length})</div>
-    <div class="iw-photos" id="photoGrid-${idx}"></div>
+    <div class="iw-photos" id="photoGrid-${idx}">
+      ${photos.map(p=>`<div class="iw-photo-thumb"><img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')"><button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button></div>`).join('')}
+      <div class="iw-photo-add" onclick="openPhotoPanel(${idx})"><span style="font-size:20px">📷</span><span>사진 추가</span></div>
+    </div>
 
     <div class="iw-divider"></div>
 
@@ -802,20 +805,17 @@ function renderPopup(iwEl,idx,d,iw){
 function renderPhotoGrid(idx,photos){
   const grid=document.getElementById(`photoGrid-${idx}`);
   if(!grid)return;
-  grid.innerHTML='';
-  photos.forEach(p=>{
-    const thumb=document.createElement('div');
-    thumb.className='iw-photo-thumb';
-    thumb.innerHTML=`<img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','${esc(p.caption||'')}')">
-      <button class="iw-photo-del" onclick="event.stopPropagation();deletePhoto(${idx},'${p.id}','${p.url}')">✕</button>`;
-    grid.appendChild(thumb);
-  });
-  // 추가 버튼
-  const addBtn=document.createElement('div');
-  addBtn.className='iw-photo-add';
-  addBtn.innerHTML=`<span style="font-size:20px">📷</span><span>사진 추가</span>`;
-  addBtn.addEventListener('click',(e)=>{e.stopPropagation();openPhotoPanel(idx);});
-  grid.appendChild(addBtn);
+  // innerHTML로 전체 렌더 (onclick 인라인 사용)
+  const thumbsHtml=photos.map(p=>`
+    <div class="iw-photo-thumb">
+      <img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')">
+      <button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button>
+    </div>`).join('');
+  grid.innerHTML=thumbsHtml+`
+    <div class="iw-photo-add" onclick="openPhotoPanel(${idx})">
+      <span style="font-size:20px">📷</span>
+      <span>사진 추가</span>
+    </div>`;
 }
 
 // ━━ 완료 토글 ━━
