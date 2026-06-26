@@ -644,10 +644,24 @@ async function loadProjects(){
           if(card){
             const pct=p._total?Math.round(p._done/p._total*100):0;
             const meta=card.querySelector('.project-card-meta');
-            if(meta)meta.innerHTML=`
-              <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${p._total}개소</span>
-              <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${p._done}완료 ${pct}%</span>
-              <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>`;
+            if(meta){
+              const pct=p._total?Math.round(p._done/p._total*100):0;
+              let expireBadge='';
+              if(p.expire_at){
+                const now=new Date();const exp=new Date(p.expire_at);
+                const dDay=Math.ceil((exp-now)/(1000*60*60*24));
+                if(dDay<0) expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨 (${exp.toLocaleDateString('ko-KR')})</span>`;
+                else if(dDay<=30) expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${exp.toLocaleDateString('ko-KR')}까지</span>`;
+                else expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')}까지</span>`;
+              }else{
+                expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 영구 보관</span>`;
+              }
+              meta.innerHTML=`
+                <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${p._total}개소</span>
+                <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${p._done}완료 ${pct}%</span>
+                <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+                ${expireBadge}`;
+            }
           }
         }
       }catch(e){console.warn('건수 로드 실패',p.id,e);}
