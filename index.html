@@ -114,17 +114,16 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   .sidebar.map-mode~.map-wrap{height:100%}
   .mob-toggle{display:block!important}
   .map-toolbar{display:none!important}
-  .map-search{display:none!important}
   .map-header{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;gap:5px;padding:6px 8px}
   .map-header .btn{padding:4px 7px!important;font-size:10px!important;white-space:nowrap;flex-shrink:0}
   .map-header-title{display:none}
-  .tool-btn .btn-txt{display:none}
-  .tool-btn{padding:7px 10px!important;font-size:16px!important}
+  .tool-btn .btn-txt{display:inline}
+  .tool-btn{padding:6px 8px!important;font-size:11px!important}
   .sidebar.map-mode~.map-wrap .map-toolbar{display:flex!important}
-  .sidebar.map-mode~.map-wrap .map-search{display:none}
   .iw-wrap{max-height:70vh!important;max-width:82vw!important;overflow-y:scroll!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
   .iw-memo textarea{height:90px!important}
   .iw-photos{grid-template-columns:repeat(3,1fr)!important}
+  .dist-info{bottom:64px!important;font-size:11px!important;padding:6px 12px!important}
 }
 .mob-toggle{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--ac);color:#fff;border:none;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 
@@ -342,9 +341,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
       <div class="map-toolbar" id="mapToolbar">
         <button class="tool-btn" id="btnSearch" onclick="toggleMapSearch()">🔍<span class="btn-txt"> 검색</span></button>
         <button class="tool-btn" id="btnSat" onclick="toggleSat()">🛰️<span class="btn-txt"> 위성</span></button>
-        <button class="tool-btn" id="btnDist" onclick="toggleDist()">📏<span class="btn-txt"> 거리재기</span></button>
+        <button class="tool-btn" id="btnDist" onclick="toggleDist()">📏<span class="btn-txt"> 거리</span></button>
         <button class="tool-btn" id="btnRv" onclick="toggleRvMode()">🔭<span class="btn-txt"> 로드뷰</span></button>
-        <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕<span class="btn-txt"> 거리초기화</span></button>
+        <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕<span class="btn-txt"> 초기화</span></button>
       </div>
       <div class="dist-info" id="distInfo">클릭: 측정점 &nbsp;|&nbsp; 더블클릭: 완료<br>거리: <span id="distVal">0</span></div>
       <div class="rv-panel" id="rvPanel">
@@ -1871,7 +1870,7 @@ function openNavi(toLat,toLng,toName,stKey){
 }
 
 // ━━ 위성 ━━
-function toggleSat(){satMode=!satMode;const btn=document.getElementById('btnSat');if(satMode){kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);btn.classList.add('on-sat');btn.textContent='🗺️ 일반지도';}else{kakaoMap.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);btn.classList.remove('on-sat');btn.textContent='🛰️ 위성';}}
+function toggleSat(){satMode=!satMode;const btn=document.getElementById('btnSat');if(satMode){kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);btn.classList.add('on-sat');btn.innerHTML='🗺️<span class="btn-txt"> 일반</span>';}else{kakaoMap.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);btn.classList.remove('on-sat');btn.innerHTML='🛰️<span class="btn-txt"> 위성</span>';}}
 
 // ━━ 거리재기 ━━
 function toggleDist(){distMode=!distMode;const btn=document.getElementById('btnDist');if(distMode){btn.classList.add('on');btn.innerHTML='📏<span class="btn-txt"> 측정 중...</span>';document.getElementById('distInfo').style.display='block';document.getElementById('btnDistClear').style.display='block';kakaoMap.setCursor('crosshair');}else finishDist();}
@@ -1882,7 +1881,7 @@ function clearDist(){if(distLine){distLine.setMap(null);distLine=null;}distMarke
 
 /* ══════════ RoadView ══════════ */
 function setRvMode(on){rvMode=on;const btn=document.getElementById('btnRv');if(on){btn.classList.add('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 위치 클릭...</span>';if(kakaoMap)kakaoMap.setCursor('crosshair');}else{btn.classList.remove('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 로드뷰</span>';if(kakaoMap)kakaoMap.setCursor('');}}
-function toggleRvMode(){setRvMode(!rvMode);}
+function toggleRvMode(){setRvMode(!rvMode);if(rvMode)showToast('지도에서 로드뷰를 볼 위치를 클릭하세요','');}
 function openRvAt(latLng){
   document.getElementById('rvPanel').style.display='flex';
   document.getElementById('rvHint').textContent=`${latLng.getLat().toFixed(5)}, ${latLng.getLng().toFixed(5)}`;
@@ -1929,9 +1928,15 @@ function toggleMobView(){
   if(mobMapMode&&kakaoMap){
     const center=kakaoMap.getCenter();
     const level=kakaoMap.getLevel();
-    setTimeout(()=>{kakaoMap.relayout();kakaoMap.setCenter(center);kakaoMap.setLevel(level);},50);
-    setTimeout(()=>{kakaoMap.relayout();kakaoMap.setCenter(center);kakaoMap.setLevel(level);},200);
-    setTimeout(()=>{kakaoMap.relayout();kakaoMap.setCenter(center);kakaoMap.setLevel(level);},500);
+    const restore=()=>{
+      kakaoMap.relayout();
+      // 마커가 있으면 마커 영역에 맞추고, 없으면 기존 위치 복원
+      if(items.some(d=>d.lat&&d.lng))fitAll();
+      else{kakaoMap.setCenter(center);kakaoMap.setLevel(level);}
+    };
+    setTimeout(restore,50);
+    setTimeout(restore,250);
+    setTimeout(restore,500);
   }
 }
 
