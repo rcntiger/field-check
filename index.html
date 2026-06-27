@@ -346,6 +346,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <button class="tool-btn" id="btnDist" onclick="toggleDist()">📏<span class="btn-txt"> 거리</span></button>
         <button class="tool-btn" id="btnRv" onclick="toggleRvMode()">🔭<span class="btn-txt"> 로드뷰</span></button>
         <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕<span class="btn-txt"> 초기화</span></button>
+        <button class="tool-btn" onclick="showStationModal()" style="margin-top:16px;border-top:1px solid var(--bd2);padding-top:10px">⚙️<span class="btn-txt"> 출발지</span></button>
       </div>
       <div class="dist-info" id="distInfo">클릭: 측정점 &nbsp;|&nbsp; 더블클릭: 완료<br>거리: <span id="distVal">0</span></div>
       <div class="rv-panel" id="rvPanel">
@@ -371,6 +372,27 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
     </div>
   </div>
   <button class="mob-toggle" id="mobToggle" onclick="toggleMobView()">🗺️ 지도 보기</button>
+</div>
+
+<!-- ════ 모달: 출발지 설정 ════ -->
+<div class="modal-bg" id="stationModal">
+  <div class="modal" style="max-width:480px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="margin:0">🚩 출발지 설정</h3>
+      <button onclick="hideModal('stationModal')" style="background:none;border:none;color:var(--mt);font-size:22px;cursor:pointer;padding:2px 6px">✕</button>
+    </div>
+    <div style="font-size:11px;color:var(--mt);margin-bottom:12px">최대 5개 · 정보카드 길찾기 드롭다운에 반영됩니다</div>
+    <div id="stationList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+    <div id="stationAddArea" style="display:flex;flex-direction:column;gap:6px;background:var(--sur2);border-radius:var(--r);padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--mt);margin-bottom:4px">새 출발지 추가</div>
+      <input type="text" id="stationNewName" placeholder="출발지 이름 (예: 시흥파출소)" style="padding:7px 9px;background:var(--sur);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--r);font-size:12px">
+      <input type="text" id="stationNewAddr" placeholder="주소 (예: 서울 금천구 시흥대로 342)" style="padding:7px 9px;background:var(--sur);border:1px solid var(--bd2);color:var(--tx);border-radius:var(--r);font-size:12px">
+      <button onclick="addStation()" class="btn btn-primary" style="font-size:12px;padding:7px;margin-top:8px">+ 추가</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="hideModal('stationModal')">닫기</button>
+    </div>
+  </div>
 </div>
 
 <!-- ════ 모달: 프로젝트 수정 ════ -->
@@ -625,9 +647,9 @@ const SB_HDR  = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type'
 const PHOTO_BUCKET = 'inspection-photos';
 const GROUP_COLORS = ['#3b82f6','#ef4444','#a78bfa','#f59e0b','#10b981','#ec4899'];
 const GROUP_CLS    = ['g1','g2','g3','g4','g5','g6'];
-const STATIONS = {
-  fs:{name:'금천소방서',    lat:37.4647,lng:126.9015},
-  sh:{name:'시흥119안전센터',lat:37.4447,lng:126.9089}
+let STATIONS = {
+  fs:{key:'fs',name:'금천소방서',    lat:37.4647,lng:126.9015},
+  sh:{key:'sh',name:'시흥119안전센터',lat:37.4447,lng:126.9089}
 };
 
 /* ══════════ State ══════════ */
@@ -661,27 +683,26 @@ function sbStore(path,opts={}){return fetch(SB_URL+'/storage/v1/'+path,{headers:
 /* ══════════ Init ══════════ */
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('mapView').style.display='none';
+  loadStations();
   loadProjects();
   loadSheetJS();
   fetchStationCoords();
 });
 
-// 소방서/안전센터 정확한 좌표를 Kakao keyword API로 동적 취득 (apt_check 방식)
+// 출발지 좌표를 Kakao keyword API로 동적 취득
 async function fetchStationCoords(){
-  const queries={fs:'금천소방서',sh:'시흥119안전센터'};
-  for(const [key,q] of Object.entries(queries)){
+  for(const [key,st] of Object.entries(STATIONS)){
     try{
-      const r=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=1`,
+      const r=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(st.name)}&size=1`,
         {headers:{Authorization:'KakaoAK '+REST_KEY}});
       if(r.ok){
         const data=await r.json();
-        if(data.documents&&data.documents.length){
-          const d=data.documents[0];
-          STATIONS[key].lat=parseFloat(d.y);
-          STATIONS[key].lng=parseFloat(d.x);
+        if(data.documents?.length){
+          STATIONS[key].lat=parseFloat(data.documents[0].y);
+          STATIONS[key].lng=parseFloat(data.documents[0].x);
         }
       }
-    }catch(e){console.warn('좌표 취득 실패:',q,e);}
+    }catch(e){console.warn('좌표 취득 실패:',st.name,e);}
   }
 }
 
@@ -1216,11 +1237,17 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-divider"></div>
 
     <div class="iw-navi-row">
-      <select class="iw-navi-sel" id="naviSel-${idx}">
-        <option value="fs">🚒 금천소방서</option>
-        <option value="sh">🚒 시흥119</option>
-      </select>
-      <button class="iw-navi-btn" onclick="openNavi(${d.lat},${d.lng},'${d.name.replace(/'/g,'').substring(0,15)}',document.getElementById('naviSel-${idx}').value)">🗺️ 길찾기</button>
+      <div id="naviFrom-${idx}" style="position:relative;display:contents">
+        <select class="iw-navi-sel" id="naviSel-${idx}" onchange="onNaviSelChange(${idx})">
+          ${Object.values(STATIONS).map(s=>`<option value="${s.key}">🚒 ${esc(s.name)}</option>`).join('')}
+          <option value="custom">✏️ 직접 입력</option>
+        </select>
+        <div id="naviCustomWrap-${idx}" style="display:none;flex:1;min-width:0;position:relative">
+          <input type="text" id="naviCustomInput-${idx}" placeholder="출발지 주소 입력..." style="width:100%;padding:5px 22px 5px 6px;border:1px solid #fde68a;border-radius:6px;font-size:10px;background:#fffbeb;color:#334155;outline:none;box-sizing:border-box">
+          <button onclick="clearNaviCustom(${idx})" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:#94a3b8;font-size:12px;cursor:pointer;padding:0;line-height:1">✕</button>
+        </div>
+      </div>
+      <button class="iw-navi-btn" onclick="naviClick(${idx},${d.lat},${d.lng},'${d.name.replace(/'/g,'').substring(0,15)}')">🗺️ 길찾기</button>
     </div>
 
     <div class="iw-divider iw-done-bottom-divider"></div>
@@ -1861,21 +1888,272 @@ async function searchMap(){
   if(results[0])kakaoMap.panTo(new kakao.maps.LatLng(results[0].lat,results[0].lng));
 }
 
+/* ══════════ Station Settings ══════════ */
+const STATION_KEY='field_check_stations';
+const DEFAULT_STATIONS=[
+  {key:'fs',name:'금천소방서',lat:37.4647,lng:126.9015},
+  {key:'sh',name:'시흥119안전센터',lat:37.4447,lng:126.9089}
+];
+
+function loadStations(){
+  try{
+    const saved=localStorage.getItem(STATION_KEY);
+    if(saved){
+      const parsed=JSON.parse(saved);
+      if(Array.isArray(parsed)&&parsed.length){
+        STATIONS={};
+        parsed.forEach(s=>{STATIONS[s.key]=s;});
+        return;
+      }
+    }
+  }catch(e){console.warn('출발지 로드 실패',e);}
+  // 기본값 유지 + key 필드 보장
+  Object.keys(STATIONS).forEach(k=>{STATIONS[k].key=k;});
+}
+
+function saveStations(){
+  const list=Object.entries(STATIONS).map(([k,s])=>({...s,key:k}));
+  localStorage.setItem(STATION_KEY,JSON.stringify(list));
+}
+
+function showStationModal(){
+  renderStationList();
+  const addArea=document.getElementById('stationAddArea');
+  if(addArea)addArea.style.display=Object.keys(STATIONS).length>=5?'none':'block';
+  showModal('stationModal');
+}
+
+function renderStationList(){
+  const el=document.getElementById('stationList');
+  if(!el)return;
+  const list=Object.values(STATIONS);
+  if(!list.length){el.innerHTML='<div style="font-size:12px;color:var(--mt);text-align:center;padding:10px">등록된 출발지가 없습니다</div>';return;}
+  const isMobile=window.innerWidth<=600;
+  el.innerHTML=list.map((s,i)=>`
+    <div class="station-item" data-key="${s.key}" ${!isMobile?'draggable="true"':''}
+      style="display:flex;align-items:center;gap:8px;background:var(--sur2);border-radius:var(--r);padding:8px 10px;transition:opacity .15s;user-select:none">
+      ${isMobile?`
+        <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+          <button onclick="moveStation('${s.key}',-1)" ${i===0?'disabled':''}
+            style="background:none;border:1px solid var(--bd2);border-radius:3px;color:${i===0?'var(--mt)':'var(--tx)'};cursor:${i===0?'default':'pointer'};font-size:10px;padding:1px 5px;line-height:1.4">▲</button>
+          <button onclick="moveStation('${s.key}',1)" ${i===list.length-1?'disabled':''}
+            style="background:none;border:1px solid var(--bd2);border-radius:3px;color:${i===list.length-1?'var(--mt)':'var(--tx)'};cursor:${i===list.length-1?'default':'pointer'};font-size:10px;padding:1px 5px;line-height:1.4">▼</button>
+        </div>`
+      :`<span style="color:var(--mt);cursor:grab;font-size:16px;padding:0 2px;flex-shrink:0" title="드래그하여 순서 변경">⠿</span>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--tx)">${esc(s.name)}</div>
+        <div style="font-size:10px;color:var(--mt);margin-top:2px">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}</div>
+      </div>
+      <button onclick="removeStation('${s.key}')" style="background:none;border:none;color:var(--mt);cursor:pointer;font-size:16px;padding:2px 5px;border-radius:4px;flex-shrink:0" title="삭제">🗑</button>
+    </div>`).join('');
+
+  if(!isMobile){
+    // PC: 드래그앤드롭
+    let dragSrc=null;
+    el.querySelectorAll('.station-item').forEach(item=>{
+      item.addEventListener('dragstart',e=>{
+        dragSrc=item;
+        e.dataTransfer.effectAllowed='move';
+        setTimeout(()=>item.style.opacity='0.4',0);
+      });
+      item.addEventListener('dragend',()=>{
+        item.style.opacity='1';
+        el.querySelectorAll('.station-item').forEach(i=>i.style.border='');
+      });
+      item.addEventListener('dragover',e=>{
+        e.preventDefault();
+        e.dataTransfer.dropEffect='move';
+        if(item!==dragSrc)item.style.border='1px solid var(--ac)';
+      });
+      item.addEventListener('dragleave',()=>item.style.border='');
+      item.addEventListener('drop',e=>{
+        e.preventDefault();
+        if(!dragSrc||dragSrc===item)return;
+        item.style.border='';
+        const keys=[...el.querySelectorAll('.station-item')].map(i=>i.dataset.key);
+        const fromIdx=keys.indexOf(dragSrc.dataset.key);
+        const toIdx=keys.indexOf(item.dataset.key);
+        keys.splice(fromIdx,1);
+        keys.splice(toIdx,0,dragSrc.dataset.key);
+        const newStations={};
+        keys.forEach(k=>{if(STATIONS[k])newStations[k]=STATIONS[k];});
+        STATIONS=newStations;
+        saveStations();refreshNaviSelects();renderStationList();
+      });
+    });
+  }
+}
+
+function moveStation(key,dir){
+  const keys=Object.keys(STATIONS);
+  const idx=keys.indexOf(key);
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=keys.length)return;
+  // 순서 교환
+  [keys[idx],keys[newIdx]]=[keys[newIdx],keys[idx]];
+  const newStations={};
+  keys.forEach(k=>{newStations[k]=STATIONS[k];});
+  STATIONS=newStations;
+  saveStations();refreshNaviSelects();renderStationList();
+}
+
+async function addStation(){
+  const name=document.getElementById('stationNewName').value.trim();
+  const addr=document.getElementById('stationNewAddr').value.trim();
+  if(!name){showToast('이름을 입력하세요','err');return;}
+  if(!addr){showToast('주소를 입력하세요','err');return;}
+  if(Object.keys(STATIONS).length>=5){showToast('최대 5개까지 등록 가능합니다','err');return;}
+  showToast('좌표 검색 중...','');
+  try{
+    const r=await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(addr)}&size=1`,
+      {headers:{Authorization:'KakaoAK '+REST_KEY}});
+    const data=await r.json();
+    let lat,lng;
+    if(data.documents?.length){
+      lat=parseFloat(data.documents[0].y);
+      lng=parseFloat(data.documents[0].x);
+    }else{
+      const r2=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(addr)}&size=1`,
+        {headers:{Authorization:'KakaoAK '+REST_KEY}});
+      const data2=await r2.json();
+      if(data2.documents?.length){
+        lat=parseFloat(data2.documents[0].y);
+        lng=parseFloat(data2.documents[0].x);
+      }else{showToast('주소를 찾을 수 없습니다','err');return;}
+    }
+    const key='st_'+Date.now();
+    STATIONS[key]={key,name,lat,lng};
+    saveStations();
+    document.getElementById('stationNewName').value='';
+    document.getElementById('stationNewAddr').value='';
+    renderStationList();
+    refreshNaviSelects();
+    const addArea=document.getElementById('stationAddArea');
+    if(addArea)addArea.style.display=Object.keys(STATIONS).length>=5?'none':'block';
+    showToast(`'${name}' 추가됨`,'ok');
+  }catch(e){showToast('주소 검색 실패','err');}
+}
+
+function refreshNaviSelects(){
+  // 현재 열린 정보카드의 select를 STATIONS 기준으로 갱신
+  document.querySelectorAll('[id^="naviSel-"]').forEach(sel=>{
+    const idx=sel.id.replace('naviSel-','');
+    const cur=sel.value;
+    sel.innerHTML=Object.values(STATIONS).map(s=>`<option value="${s.key}">🚒 ${esc(s.name)}</option>`).join('')
+      +`<option value="custom">✏️ 직접 입력</option>`;
+    // 이전 선택값 유지 (없으면 첫 번째)
+    if(STATIONS[cur])sel.value=cur;
+  });
+}
+
+function removeStation(key){
+  if(!confirm(`'${STATIONS[key]?.name}' 출발지를 삭제하시겠습니까?`))return;
+  delete STATIONS[key];
+  saveStations();
+  renderStationList();
+  refreshNaviSelects();
+  const addArea=document.getElementById('stationAddArea');
+  if(addArea)addArea.style.display=Object.keys(STATIONS).length>=5?'none':'block';
+  showToast('삭제됨','ok');
+}
+
 /* ══════════ Navigation ══════════ */
-function openNavi(toLat,toLng,toName,stKey){
-  const st=STATIONS[stKey]||STATIONS.fs;
+// select 변경 시 직접 입력창으로 교체
+function onNaviSelChange(idx){
+  const sel=document.getElementById(`naviSel-${idx}`);
+  const wrap=document.getElementById(`naviCustomWrap-${idx}`);
+  if(!sel||!wrap)return;
+  if(sel.value==='custom'){
+    sel.dataset.prev=sel.dataset.lastVal||'fs';
+    sel.style.display='none';
+    wrap.style.display='block';
+    document.getElementById(`naviCustomInput-${idx}`)?.focus();
+  }else{
+    sel.dataset.lastVal=sel.value;
+  }
+}
+function clearNaviCustom(idx){
+  const input=document.getElementById(`naviCustomInput-${idx}`);
+  const wrap=document.getElementById(`naviCustomWrap-${idx}`);
+  const sel=document.getElementById(`naviSel-${idx}`);
+  if(input&&input.value.trim()){
+    // 글자 있으면 지우고 포커스 유지
+    input.value='';input.focus();
+  }else{
+    // 빈 상태면 선택으로 복귀
+    if(wrap)wrap.style.display='none';
+    if(sel){sel.style.display='';sel.value=sel.dataset.prev||'fs';}
+  }
+}
+
+// 길찾기 버튼 클릭
+async function naviClick(idx,toLat,toLng,toName){
+  const wrap=document.getElementById(`naviCustomWrap-${idx}`);
+  const input=document.getElementById(`naviCustomInput-${idx}`);
+  const sel=document.getElementById(`naviSel-${idx}`);
+  const isCustom=wrap&&wrap.style.display==='block';
+
+  if(isCustom){
+    // 직접 입력 모드
+    const addr=(input?.value||'').trim();
+    if(!addr){showToast('출발지 주소를 입력하세요','err');return;}
+    showToast('출발지 좌표 검색 중...','');
+    try{
+      let lat,lng;
+      const r=await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(addr)}&size=1`,
+        {headers:{Authorization:'KakaoAK '+REST_KEY}});
+      const data=await r.json();
+      if(data.documents?.length){
+        lat=parseFloat(data.documents[0].y);
+        lng=parseFloat(data.documents[0].x);
+      }else{
+        const r2=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(addr)}&size=1`,
+          {headers:{Authorization:'KakaoAK '+REST_KEY}});
+        const data2=await r2.json();
+        if(data2.documents?.length){
+          lat=parseFloat(data2.documents[0].y);
+          lng=parseFloat(data2.documents[0].x);
+        }else{showToast('주소를 찾을 수 없습니다','err');return;}
+      }
+      openNaviWithCoords(lat,lng,addr.substring(0,15),toLat,toLng,toName);
+    }catch(e){showToast('주소 검색 실패','err');}
+  }else{
+    // 드롭다운 선택 모드
+    const stKey=sel?.value;
+    if(!stKey||stKey==='custom'){showToast('출발지를 선택하세요','err');return;}
+    openNavi(toLat,toLng,toName,stKey);
+  }
+}
+
+// 좌표로 직접 길찾기
+function openNaviWithCoords(fromLat,fromLng,fromName,toLat,toLng,toName){
   const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  // 카카오맵 공식 길찾기 형식: /link/by/{이동수단}/출발(이름,위도,경도)/도착(이름,위도,경도)
+  const sp=`${encodeURIComponent(fromName)},${fromLat},${fromLng}`;
+  const ep=`${encodeURIComponent(toName)},${toLat},${toLng}`;
+  const webUrl=`https://map.kakao.com/link/by/car/${sp}/${ep}`;
+  if(isMobile){
+    const naviUrl=`kakaomap://route?sp=${fromLat},${fromLng}&ep=${toLat},${toLng}&by=CAR`;
+    const el=document.createElement('a');
+    el.href=naviUrl;el.style.display='none';
+    document.body.appendChild(el);el.click();document.body.removeChild(el);
+    setTimeout(()=>{window.open(webUrl,'_blank');},1500);
+  }else{
+    window.open(webUrl,'_blank');
+  }
+}
+function openNavi(toLat,toLng,toName,stKey){
+  const st=STATIONS[stKey]||Object.values(STATIONS)[0];
+  if(!st){showToast('출발지가 설정되지 않았습니다','err');return;}
+  if(!st.lat||!st.lng){showToast('출발지 좌표가 없습니다','err');return;}
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const sp=`${encodeURIComponent(st.name)},${st.lat},${st.lng}`;
   const ep=`${encodeURIComponent(toName)},${toLat},${toLng}`;
   const webUrl=`https://map.kakao.com/link/by/car/${sp}/${ep}`;
   if(isMobile){
-    // 카카오맵 앱 길찾기 딥링크 (좌표 기반, 자동차)
     const naviUrl=`kakaomap://route?sp=${st.lat},${st.lng}&ep=${toLat},${toLng}&by=CAR`;
     const el=document.createElement('a');
     el.href=naviUrl;el.style.display='none';
     document.body.appendChild(el);el.click();document.body.removeChild(el);
-    // 앱 미설치 시 웹으로 폴백
     setTimeout(()=>{window.open(webUrl,'_blank');},1500);
   }else{
     window.open(webUrl,'_blank');
