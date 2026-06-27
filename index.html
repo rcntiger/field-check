@@ -114,6 +114,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   .map-header{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;gap:5px;padding:6px 8px}
   .map-header .btn{padding:4px 7px!important;font-size:10px!important;white-space:nowrap;flex-shrink:0}
   .map-header-title{display:none}
+  .tool-btn .btn-txt{display:none}
+  .tool-btn{padding:7px 10px!important;font-size:16px!important}
   .sidebar.map-mode~.map-wrap .map-toolbar{display:flex!important}
   .sidebar.map-mode~.map-wrap .map-search{display:none}
   .iw-wrap{max-height:70vh!important;max-width:82vw!important;overflow-y:scroll!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
@@ -163,6 +165,17 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 
 /* 팝업 */
 .iw-wrap{background:#fff;border-radius:10px;padding:12px 14px;min-width:240px;max-width:290px;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:sans-serif;max-height:60vh;overflow-y:auto}
+.iw-photo-add-top{display:none}
+@media(max-width:600px){
+  .iw-photo-add-top{display:block}
+  .iw-photo-add-bottom{display:none!important}
+}
+.iw-done-top{display:none;padding:3px 9px;border:none;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:#f1f5f9;color:#64748b;transition:all .15s}
+.iw-done-top.is-done{background:#22c55e;color:#fff}
+@media(max-width:600px){
+  .iw-done-top{display:block}
+  .iw-done-bottom,.iw-done-bottom-divider{display:none!important}
+}
 .iw-wrap::-webkit-scrollbar{width:3px}
 .iw-wrap::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
 .iw-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -314,11 +327,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <div class="map-search-results" id="mapSearchResults"></div>
       </div>
       <div class="map-toolbar" id="mapToolbar">
-        <button class="tool-btn" id="btnSearch" onclick="toggleMapSearch()">🔍 검색</button>
-        <button class="tool-btn" id="btnSat" onclick="toggleSat()">🛰️ 위성</button>
-        <button class="tool-btn" id="btnDist" onclick="toggleDist()">📏 거리재기</button>
-        <button class="tool-btn" id="btnRv" onclick="toggleRvMode()">🔭 로드뷰</button>
-        <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕ 거리초기화</button>
+        <button class="tool-btn" id="btnSearch" onclick="toggleMapSearch()">🔍<span class="btn-txt"> 검색</span></button>
+        <button class="tool-btn" id="btnSat" onclick="toggleSat()">🛰️<span class="btn-txt"> 위성</span></button>
+        <button class="tool-btn" id="btnDist" onclick="toggleDist()">📏<span class="btn-txt"> 거리재기</span></button>
+        <button class="tool-btn" id="btnRv" onclick="toggleRvMode()">🔭<span class="btn-txt"> 로드뷰</span></button>
+        <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕<span class="btn-txt"> 거리초기화</span></button>
       </div>
       <div class="dist-info" id="distInfo">클릭: 측정점 &nbsp;|&nbsp; 더블클릭: 완료<br>거리: <span id="distVal">0</span></div>
       <div class="rv-panel" id="rvPanel">
@@ -1072,7 +1085,12 @@ function renderPopup(iwEl,idx,d,iw){
   iwEl.innerHTML=`
     <div class="iw-header">
       <span class="iw-team-badge" style="background:${color}22;color:${color}">${esc(d.group_name||'점검대상')}</span>
-      <span class="iw-close" onclick="closeIw()">✕</span>
+      <div style="display:flex;align-items:center;gap:5px">
+        <button class="iw-done-top${isDone?' is-done':''}" id="doneBtnTop-${idx}" onclick="toggleDone(${idx})">
+          ${isDone?'✓ 완료':'완료'}
+        </button>
+        <span class="iw-close" onclick="closeIw()">✕</span>
+      </div>
     </div>
     <div class="iw-name">${esc(d.name)}</div>
     ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
@@ -1087,7 +1105,10 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-memo">
       <div class="iw-memo-header">
         <span class="iw-memo-title">📝 점검 메모</span>
-        <span class="iw-memo-status" id="memoSt-${idx}"></span>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span class="iw-memo-status" id="memoSt-${idx}"></span>
+          <button class="iw-rv-inline iw-photo-add-top" onclick="openPhotoSheet(${idx})">📷 추가</button>
+        </div>
       </div>
       <textarea id="memo-${idx}" placeholder="점검 결과, 특이사항 입력..." oninput="onMemoInput(${idx},this)">${esc(memo)}</textarea>
       <div class="iw-memo-actions">
@@ -1101,7 +1122,7 @@ function renderPopup(iwEl,idx,d,iw){
 
     <div class="iw-divider"></div>
 
-    <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:5px">
+    <div class="iw-photo-add-bottom" style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:5px">
       <button class="iw-rv-inline" onclick="openPhotoSheet(${idx})">📷 추가</button>
     </div>
     <div class="iw-photos" id="photoGrid-${idx}"></div>
@@ -1116,9 +1137,8 @@ function renderPopup(iwEl,idx,d,iw){
       <button class="iw-navi-btn" onclick="openNavi(${d.lat},${d.lng},'${d.name.replace(/'/g,'').substring(0,15)}',document.getElementById('naviSel-${idx}').value)">🗺️ 길찾기</button>
     </div>
 
-    <div class="iw-divider"></div>
-
-    <button class="iw-btn done-btn${isDone?' is-done':''}" id="doneBtn-${idx}" onclick="toggleDone(${idx})">
+    <div class="iw-divider iw-done-bottom-divider"></div>
+    <button class="iw-btn done-btn${isDone?' is-done':''} iw-done-bottom" id="doneBtn-${idx}" onclick="toggleDone(${idx})">
       ${isDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭'}
     </button>`;
 
@@ -1159,6 +1179,8 @@ async function toggleDone(idx){
   const newDone=!!doneMap[d.id];
   const btn=document.getElementById(`doneBtn-${idx}`);
   if(btn){btn.textContent=newDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭';btn.classList.toggle('is-done',newDone);}
+  const btnTop=document.getElementById(`doneBtnTop-${idx}`);
+  if(btnTop){btnTop.textContent=newDone?'✓ 완료':'완료';btnTop.classList.toggle('is-done',newDone);}
   const dateRow=document.getElementById(`dateRow-${idx}`);
   if(dateRow){
     dateRow.style.display=newDone?'flex':'none';
@@ -1757,14 +1779,14 @@ function openNavi(toLat,toLng,toName,stKey){
 function toggleSat(){satMode=!satMode;const btn=document.getElementById('btnSat');if(satMode){kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);btn.classList.add('on-sat');btn.textContent='🗺️ 일반지도';}else{kakaoMap.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);btn.classList.remove('on-sat');btn.textContent='🛰️ 위성';}}
 
 // ━━ 거리재기 ━━
-function toggleDist(){distMode=!distMode;const btn=document.getElementById('btnDist');if(distMode){btn.classList.add('on');btn.textContent='📏 측정 중...';document.getElementById('distInfo').style.display='block';document.getElementById('btnDistClear').style.display='block';kakaoMap.setCursor('crosshair');}else finishDist();}
+function toggleDist(){distMode=!distMode;const btn=document.getElementById('btnDist');if(distMode){btn.classList.add('on');btn.innerHTML='📏<span class="btn-txt"> 측정 중...</span>';document.getElementById('distInfo').style.display='block';document.getElementById('btnDistClear').style.display='block';kakaoMap.setCursor('crosshair');}else finishDist();}
 function addDistMarker(pos){const el=document.createElement('div');el.style.cssText='width:8px;height:8px;border-radius:50%;background:#2f81f7;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)';const o=new kakao.maps.CustomOverlay({position:pos,content:el,zIndex:50});o.setMap(kakaoMap);distMarkers.push(o);}
 function updateDistLine(){if(distLine)distLine.setMap(null);if(distPath.length<2)return;distLine=new kakao.maps.Polyline({map:kakaoMap,path:distPath,strokeWeight:3,strokeColor:'#2f81f7',strokeOpacity:.9,strokeStyle:'solid'});const m=Math.round(distLine.getLength());document.getElementById('distVal').textContent=m>=1000?(m/1000).toFixed(2)+'km':m+'m';}
-function finishDist(){distMode=false;document.getElementById('btnDist').classList.remove('on');document.getElementById('btnDist').textContent='📏 거리재기';if(kakaoMap)kakaoMap.setCursor('');}
+function finishDist(){distMode=false;document.getElementById('btnDist').classList.remove('on');document.getElementById('btnDist').innerHTML='📏<span class="btn-txt"> 거리재기</span>';if(kakaoMap)kakaoMap.setCursor('');}
 function clearDist(){if(distLine){distLine.setMap(null);distLine=null;}distMarkers.forEach(m=>m.setMap(null));distMarkers=[];distPath=[];document.getElementById('distVal').textContent='0';document.getElementById('distInfo').style.display='none';document.getElementById('btnDistClear').style.display='none';finishDist();}
 
 // ━━ 로드뷰 ━━
-function setRvMode(on){rvMode=on;const btn=document.getElementById('btnRv');if(on){btn.classList.add('on-rv');btn.textContent='🔭 위치 클릭...';if(kakaoMap)kakaoMap.setCursor('crosshair');}else{btn.classList.remove('on-rv');btn.textContent='🔭 로드뷰';if(kakaoMap)kakaoMap.setCursor('');}}
+function setRvMode(on){rvMode=on;const btn=document.getElementById('btnRv');if(on){btn.classList.add('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 위치 클릭...</span>';if(kakaoMap)kakaoMap.setCursor('crosshair');}else{btn.classList.remove('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 로드뷰</span>';if(kakaoMap)kakaoMap.setCursor('');}}
 function toggleRvMode(){setRvMode(!rvMode);}
 function openRvAt(latLng){
   document.getElementById('rvPanel').style.display='flex';
