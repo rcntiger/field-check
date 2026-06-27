@@ -623,6 +623,7 @@ const STATIONS = {
 
 // ━━ 상태 ━━
 let kakaoMap=null,rvInstance=null,rvMinimapInst=null,rvOverlay=null,minimapOn=false;
+let clusterer=null;
 let rvMode=false,distMode=false,distLine=null,distMarkers=[],distPath=[],satMode=false;
 let roadPolylines=[],iwOpen=null,activeMarkerEl=null,lastIw=null,activeIdx=-1;
 let searchMarkers=[],mobMapMode=false;
@@ -1030,13 +1031,25 @@ function initKakaoMap(){
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>reject(new Error('TIMEOUT')),10000);
     const s=document.createElement('script');
-    s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${JS_KEY}&autoload=false&libraries=services`;
+    s.src=`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${JS_KEY}&autoload=false&libraries=services,clusterer`;
     s.onerror=()=>{clearTimeout(timer);reject(new Error('SCRIPT_LOAD'));};
     s.onload=()=>{kakao.maps.load(()=>{
       clearTimeout(timer);
       try{
         document.getElementById('mapPh').style.display='none';
         kakaoMap=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.46,126.90),level:5});
+        clusterer=new kakao.maps.MarkerClusterer({
+          map:kakaoMap,
+          averageCenter:true,
+          minLevel:6,
+          disableClickZoom:false,
+          styles:[{
+            width:'36px',height:'36px',background:'rgba(47,129,247,.85)',
+            borderRadius:'50%',color:'#fff',textAlign:'center',
+            fontWeight:'700',fontSize:'13px',lineHeight:'36px',
+            border:'2px solid #fff',boxShadow:'0 2px 6px rgba(0,0,0,.4)'
+          }]
+        });
         // 모바일은 지도 보기 클릭 시 툴바 표시, PC는 항상 표시
         if(window.innerWidth>768){
           document.getElementById('mapToolbar').style.display='flex';
@@ -1068,6 +1081,7 @@ function groupCls(d){return 'g2';}
 
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});
+  if(clusterer)clusterer.clear();
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
 }
@@ -1115,7 +1129,10 @@ function addMarker(idx,d){
   });
   const overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:el,zIndex:10});
   overlay.setMap(kakaoMap);
-  overlays[idx]={overlay,iw};
+  // 클러스터러용 invisible 마커 (줌 레벨 6 이상에서 클러스터로 묶임)
+  const clMarker=new kakao.maps.Marker({position:new kakao.maps.LatLng(d.lat,d.lng),opacity:0});
+  if(clusterer)clusterer.addMarker(clMarker,true);
+  overlays[idx]={overlay,iw,clMarker};
 }
 
 function renderPopup(iwEl,idx,d,iw){
@@ -1820,8 +1837,23 @@ async function searchMap(){
 // ━━ 길찾기 ━━
 function openNavi(toLat,toLng,toName,stKey){
   const st=STATIONS[stKey]||STATIONS.fs;
-  const url=`https://map.kakao.com/link/from/${encodeURIComponent(st.name)},${st.lat},${st.lng}/to/${encodeURIComponent(toName)},${toLat},${toLng}`;
-  window.open(url,'_blank');
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(isMobile){
+    // 카카오내비 앱 딥링크 (앱 미설치 시 플레이스토어/앱스토어로 이동)
+    const naviUrl=`kakaomap://route?sp=${st.lat},${st.lng}&ep=${toLat},${toLng}&by=CAR`;
+    const storeUrl=`https://map.kakao.com/link/from/${encodeURIComponent(st.name)},${st.lat},${st.lng}/to/${encodeURIComponent(toName)},${toLat},${toLng}`;
+    const el=document.createElement('a');
+    el.href=naviUrl;
+    el.style.display='none';
+    document.body.appendChild(el);
+    el.click();
+    document.body.removeChild(el);
+    // 앱 미실행 시 웹으로 폴백
+    setTimeout(()=>{window.open(storeUrl,'_blank');},1500);
+  }else{
+    const url=`https://map.kakao.com/link/from/${encodeURIComponent(st.name)},${st.lat},${st.lng}/to/${encodeURIComponent(toName)},${toLat},${toLng}`;
+    window.open(url,'_blank');
+  }
 }
 
 // ━━ 위성 ━━
