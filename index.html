@@ -286,7 +286,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 <!-- ════ 맵 뷰 ════ -->
 <div id="mapView" style="display:flex;flex-direction:column">
   <div class="map-header">
-    <button class="back-btn" onclick="goHome()">← 목록</button>
+    <button class="back-btn" id="backBtn" onclick="handleBack()">← 목록</button>
     <span class="map-header-title" id="mapHeaderTitle">점검 지도</span>
     <button class="btn btn-ghost" onclick="showUploadModal()" style="padding:4px 10px;font-size:11px;flex-shrink:0">📂 엑셀 업로드</button>
     <button class="btn btn-ghost" onclick="showResetColModal()" style="padding:4px 10px;font-size:11px;flex-shrink:0">🔧 컬럼 재설정</button>
@@ -921,6 +921,15 @@ async function openProject(proj){
   await initKakaoMap();
   await loadProjectData();
 }
+// 상단 버튼: 모바일 지도 보기 상태면 목록으로, 아니면 홈으로
+function handleBack(){
+  if(window.innerWidth<=600&&mobMapMode){
+    toggleMobView(); // 목록 보기로 전환
+  }else{
+    goHome();
+  }
+}
+
 async function goHome(){
   try{
     if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});}
@@ -931,6 +940,8 @@ async function goHome(){
     if(sidebar)sidebar.classList.remove('map-mode');
     const toggle=document.getElementById('mobToggle');
     if(toggle)toggle.textContent='🗺️ 지도 보기';
+    const backBtn=document.getElementById('backBtn');
+    if(backBtn)backBtn.textContent='← 목록';
     const toolbar=document.getElementById('mapToolbar');
     if(toolbar)toolbar.style.display='none';
     document.body.style.overflowX='hidden';
@@ -1926,6 +1937,8 @@ function toggleMobView(){
   mobMapMode=!mobMapMode;
   document.getElementById('sidebar').classList.toggle('map-mode',mobMapMode);
   document.getElementById('mobToggle').textContent=mobMapMode?'📋 목록 보기':'🗺️ 지도 보기';
+  const backBtn=document.getElementById('backBtn');
+  if(backBtn&&window.innerWidth<=600)backBtn.textContent=mobMapMode?'← 이전':'← 목록';
   const isMobile=window.innerWidth<=768;
   if(isMobile){
     document.getElementById('mapToolbar').style.display=mobMapMode?'flex':'none';
@@ -1951,6 +1964,8 @@ function switchToMapMode(){
     mobMapMode=true;
     document.getElementById('sidebar').classList.add('map-mode');
     document.getElementById('mobToggle').textContent='📋 목록 보기';
+    const backBtn=document.getElementById('backBtn');
+    if(backBtn&&window.innerWidth<=600)backBtn.textContent='← 이전';
     document.getElementById('mapToolbar').style.display='flex';
     document.body.style.overflowX='';
     if(kakaoMap){
