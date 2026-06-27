@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>현장 점검 지도</title>
+<title>현장 확인 점검 지도</title>
 <style>
 :root{
   --bg:#0d1117;--sur:#161b22;--sur2:#21262d;--sur3:#2d333b;
@@ -243,20 +243,20 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   <div class="home-header">
     <div class="home-logo">🚒</div>
     <div>
-      <div class="home-title">현장 점검 지도</div>
+      <div class="home-title">현장 확인 점검 지도</div>
       <div class="home-subtitle">금천소방서</div>
     </div>
   </div>
   <div class="home-content">
     <div class="section-header" style="margin-top:20px">
       <div class="section-title">점검 계획</div>
-      <button class="btn btn-primary" onclick="showCreateModal()">+ 새 점검 계획</button>
+      <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획</button>
     </div>
     <div class="project-grid" id="projectGrid">
       <div class="empty-state" id="projectEmpty" style="grid-column:1/-1;display:none">
         <div class="big">📋</div>
         <p>등록된 점검 계획이 없습니다</p>
-        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 점검 계획 만들기</button>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획 만들기</button>
       </div>
     </div>
   </div>
@@ -381,7 +381,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 <!-- ════ 모달: 프로젝트 생성 ════ -->
 <div class="modal-bg" id="createModal">
   <div class="modal">
-    <h3>📋 새 점검 계획</h3>
+    <h3>📋 새 계획</h3>
     <div class="form-row">
       <label>프로젝트명 *</label>
       <input type="text" id="projName" placeholder="예: 소방용수 검수 2026-06">
