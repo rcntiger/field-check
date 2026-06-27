@@ -102,10 +102,17 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .done-badge{display:none;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(63,185,80,.12);color:var(--lo);font-weight:600;align-items:center;gap:3px}
 @media(max-width:600px){
   .sidebar{width:100%;height:auto;max-height:45vh;border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
-  .map-wrap{flex:1;min-height:0}
+  .map-wrap{flex:1;min-height:0;height:0}
   #map{width:100%;height:100%}
   .sidebar.map-mode{display:none!important}
   .mob-toggle{display:block!important}
+  .map-toolbar{display:none!important}
+  .map-search{display:none!important}
+  .sidebar.map-mode~.map-wrap .map-toolbar{display:flex!important}
+  .sidebar.map-mode~.map-wrap .map-search{display:none}
+  .iw-wrap{max-height:52vh!important;max-width:82vw!important}
+  .iw-memo textarea{height:52px!important}
+  .iw-photos{grid-template-columns:repeat(3,1fr)!important}
 }
 .mob-toggle{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--ac);color:#fff;border:none;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 
@@ -149,7 +156,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .g1{background:#3b82f6}.g2{background:#ef4444}.g3{background:#a78bfa}.g4{background:#f59e0b}.g5{background:#10b981}.g6{background:#ec4899}.g0{background:#7d8590}
 
 /* 팝업 */
-.iw-wrap{background:#fff;border-radius:10px;padding:12px 14px;min-width:240px;max-width:290px;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:sans-serif;max-height:80vh;overflow-y:auto}
+.iw-wrap{background:#fff;border-radius:10px;padding:12px 14px;min-width:240px;max-width:290px;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:sans-serif;max-height:60vh;overflow-y:auto}
 .iw-wrap::-webkit-scrollbar{width:3px}
 .iw-wrap::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:3px}
 .iw-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -167,7 +174,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .iw-memo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .iw-memo-title{font-size:10px;color:#94a3b8;font-weight:600}
 .iw-memo-status{font-size:9px;color:#94a3b8}
-.iw-memo textarea{width:100%;height:64px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:11px;resize:vertical;outline:none;font-family:sans-serif;color:#334155;background:#f8fafc;box-sizing:border-box}
+.iw-memo textarea{width:100%;height:52px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:11px;resize:vertical;outline:none;font-family:sans-serif;color:#334155;background:#f8fafc;box-sizing:border-box}
 .iw-memo textarea:focus{border-color:#3b82f6}
 .iw-memo-actions{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
 .iw-memo-len{font-size:9px;color:#cbd5e1}
@@ -232,14 +239,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   </div>
   <div class="home-content">
     <div class="section-header" style="margin-top:20px">
-      <div class="section-title">점검 프로젝트</div>
-      <button class="btn btn-primary" onclick="showCreateModal()">+ 새 프로젝트</button>
+      <div class="section-title">점검 계획</div>
+      <button class="btn btn-primary" onclick="showCreateModal()">+ 새 점검 계획</button>
     </div>
     <div class="project-grid" id="projectGrid">
       <div class="empty-state" id="projectEmpty" style="grid-column:1/-1;display:none">
         <div class="big">📋</div>
-        <p>등록된 점검 프로젝트가 없습니다</p>
-        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 프로젝트 만들기</button>
+        <p>등록된 점검 계획이 없습니다</p>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 점검 계획 만들기</button>
       </div>
     </div>
   </div>
@@ -364,7 +371,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 <!-- ════ 모달: 프로젝트 생성 ════ -->
 <div class="modal-bg" id="createModal">
   <div class="modal">
-    <h3>📋 새 점검 프로젝트</h3>
+    <h3>📋 새 점검 계획</h3>
     <div class="form-row">
       <label>프로젝트명 *</label>
       <input type="text" id="projName" placeholder="예: 소방용수 검수 2026-06">
@@ -963,7 +970,10 @@ function initKakaoMap(){
       try{
         document.getElementById('mapPh').style.display='none';
         kakaoMap=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.46,126.90),level:5});
-        document.getElementById('mapToolbar').style.display='flex';
+        // 모바일은 지도 보기 클릭 시 툴바 표시, PC는 항상 표시
+        if(window.innerWidth>768){
+          document.getElementById('mapToolbar').style.display='flex';
+        }
         kakao.maps.event.addListener(kakaoMap,'click',(e)=>{
           document.getElementById('mapSearchResults').style.display='none';
           if(rvMode){openRvAt(e.latLng);setRvMode(false);return;}
@@ -1767,6 +1777,11 @@ function toggleMobView(){
   mobMapMode=!mobMapMode;
   document.getElementById('sidebar').classList.toggle('map-mode',mobMapMode);
   document.getElementById('mobToggle').textContent=mobMapMode?'📋 목록 보기':'🗺️ 지도 보기';
+  // 모바일에서 지도 모드일 때만 툴바 표시
+  const isMobile=window.innerWidth<=768;
+  if(isMobile){
+    document.getElementById('mapToolbar').style.display=mobMapMode?'flex':'none';
+  }
   if(mobMapMode&&kakaoMap)setTimeout(()=>kakaoMap.relayout(),100);
 }
 
