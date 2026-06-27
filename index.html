@@ -1032,7 +1032,19 @@ function addMarker(idx,d){
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
-  ['mousedown','mousemove','dblclick','wheel','touchstart','touchmove'].forEach(ev=>iwEl.addEventListener(ev,e=>e.stopPropagation()));
+  ['mousedown','mousemove','dblclick','wheel','touchstart','touchmove','touchend'].forEach(ev=>{
+    iwEl.addEventListener(ev,e=>e.stopPropagation(),{passive:false});
+  });
+  // 카드 내부 터치 스크롤 처리
+  let touchStartY=0;
+  iwEl.addEventListener('touchstart',e=>{touchStartY=e.touches[0].clientY;},{passive:true});
+  iwEl.addEventListener('touchmove',e=>{
+    const dy=e.touches[0].clientY-touchStartY;
+    const atTop=iwEl.scrollTop===0;
+    const atBottom=iwEl.scrollTop+iwEl.clientHeight>=iwEl.scrollHeight;
+    if((atTop&&dy>0)||(atBottom&&dy<0))return;
+    e.stopPropagation();
+  },{passive:false});
 
   const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.1,zIndex:100});
   renderPopup(iwEl,idx,d,iw);
