@@ -705,10 +705,16 @@ async function loadProjects(){
 function renderProjects(list){
   projectList=list;
   const grid=document.getElementById('projectGrid');
+  if(!grid)return;
+  // empty 요소를 먼저 분리 보관
   const empty=document.getElementById('projectEmpty');
+  if(empty&&empty.parentNode===grid)grid.removeChild(empty);
   grid.innerHTML='';
-  if(!list.length){empty.style.display='block';grid.appendChild(empty);return;}
-  empty.style.display='none';
+  if(!list.length){
+    if(empty){empty.style.display='block';grid.appendChild(empty);}
+    return;
+  }
+  if(empty)empty.style.display='none';
   list.forEach(p=>{
     const total=p._total||0;
     const done=p._done||0;
