@@ -102,7 +102,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .itag.done-tag{background:rgba(63,185,80,.12);color:var(--lo)}
 .done-badge{display:none;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(63,185,80,.12);color:var(--lo);font-weight:600;align-items:center;gap:3px}
 @media(max-width:600px){
-  .sidebar{width:100%;height:auto;max-height:45vh;border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
+  .sidebar{width:100%;height:auto;max-height:calc(100dvh - 44px - 48px);border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
   .map-wrap{flex:1;min-height:0;height:0}
   #map{width:100%;height:100%}
   .sidebar.map-mode{display:none!important}
@@ -289,7 +289,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <div class="filter-row" id="groupFilter"></div>
       </div>
       <div class="panel">
-        <div class="ptitle">🔍 검색</div>
+        <div class="ptitle">🔍 대상 검색</div>
         <div><input type="text" id="searchInput" placeholder="이름·주소 검색..." oninput="applyFilter()" style="width:100%;padding:7px 9px"></div>
       </div>
       <div class="list" id="listEl">
@@ -1265,8 +1265,16 @@ function closePhotoViewer(){document.getElementById('photoViewer').classList.rem
 // ━━ 사진 바텀시트 ━━
 let photoSheetIdx=-1;
 function openPhotoSheet(idx){
-  photoSheetIdx=idx;
-  document.getElementById('photoSheetBg').classList.add('open');
+  if(window.innerWidth>600){
+    // PC: 바로 파일 선택창
+    photoSheetIdx=idx;
+    const el=document.getElementById('photoInputGallery');
+    el.value='';el.click();
+  }else{
+    // 모바일: 바텀시트
+    photoSheetIdx=idx;
+    document.getElementById('photoSheetBg').classList.add('open');
+  }
 }
 function closePhotoSheet(e){
   if(e&&e.target!==document.getElementById('photoSheetBg'))return;
@@ -1322,6 +1330,8 @@ function renderList(){
         kakaoMap.setLevel(3);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
         if(overlays[i]){if(iwOpen)iwOpen.setMap(null);overlays[i].iw.setMap(kakaoMap);iwOpen=overlays[i].iw;}
       }
+      // 모바일: 목록 클릭 시 지도 모드로 자동 전환
+      if(window.innerWidth<=600)switchToMapMode();
     });
     el.appendChild(div);
   });
@@ -1777,12 +1787,32 @@ function toggleMobView(){
   mobMapMode=!mobMapMode;
   document.getElementById('sidebar').classList.toggle('map-mode',mobMapMode);
   document.getElementById('mobToggle').textContent=mobMapMode?'📋 목록 보기':'🗺️ 지도 보기';
-  // 모바일에서 지도 모드일 때만 툴바 표시
   const isMobile=window.innerWidth<=768;
   if(isMobile){
     document.getElementById('mapToolbar').style.display=mobMapMode?'flex':'none';
+    document.body.style.overflowX=mobMapMode?'':'hidden';
   }
-  if(mobMapMode&&kakaoMap)setTimeout(()=>kakaoMap.relayout(),100);
+  if(mobMapMode&&kakaoMap){
+    // 단계적으로 relayout 호출해서 확실히 재계산
+    setTimeout(()=>kakaoMap.relayout(),50);
+    setTimeout(()=>kakaoMap.relayout(),200);
+    setTimeout(()=>kakaoMap.relayout(),500);
+  }
+}
+
+function switchToMapMode(){
+  if(!mobMapMode){
+    mobMapMode=true;
+    document.getElementById('sidebar').classList.add('map-mode');
+    document.getElementById('mobToggle').textContent='📋 목록 보기';
+    document.getElementById('mapToolbar').style.display='flex';
+    document.body.style.overflowX='';
+    if(kakaoMap){
+      setTimeout(()=>kakaoMap.relayout(),50);
+      setTimeout(()=>kakaoMap.relayout(),200);
+      setTimeout(()=>kakaoMap.relayout(),500);
+    }
+  }
 }
 
 // 키보드
