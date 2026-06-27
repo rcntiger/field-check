@@ -12,7 +12,7 @@
   --r:8px;--r2:12px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
+body{font-family:'Pretendard','Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden}
 
 /* ── 공통 ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
@@ -62,6 +62,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 /* ── 맵 뷰 ── */
 #mapView{display:none;height:100vh;height:100dvh;flex-direction:column}
 .map-header{padding:8px 14px;background:var(--sur);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:44px}
+.map-header::-webkit-scrollbar{display:none}
 .map-header .back-btn{padding:4px 10px;border:1px solid var(--bd2);border-radius:6px;background:var(--sur2);color:var(--mt);font-size:12px;cursor:pointer;flex-shrink:0}
 .map-header .back-btn:hover{color:var(--tx)}
 .map-header-title{font-size:13px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -108,10 +109,13 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   .mob-toggle{display:block!important}
   .map-toolbar{display:none!important}
   .map-search{display:none!important}
+  .map-header{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;gap:5px;padding:6px 8px}
+  .map-header .btn{padding:4px 7px!important;font-size:10px!important;white-space:nowrap;flex-shrink:0}
+  .map-header-title{display:none}
   .sidebar.map-mode~.map-wrap .map-toolbar{display:flex!important}
   .sidebar.map-mode~.map-wrap .map-search{display:none}
   .iw-wrap{max-height:52vh!important;max-width:82vw!important}
-  .iw-memo textarea{height:52px!important}
+  .iw-memo textarea{height:90px!important}
   .iw-photos{grid-template-columns:repeat(3,1fr)!important}
 }
 .mob-toggle{display:none;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--ac);color:#fff;border:none;border-radius:20px;padding:8px 22px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5)}
@@ -163,7 +167,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .iw-team-badge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px}
 .iw-close{cursor:pointer;color:#94a3b8;font-size:18px;line-height:1;padding:2px 4px}
 .iw-name{font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px}
-.iw-addr{font-size:11px;color:#64748b;margin-bottom:3px}
+.iw-addr-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.iw-addr{font-size:11px;color:#64748b;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iw-rv-inline{flex-shrink:0;padding:2px 7px;border:1px solid #e2e8f0;border-radius:5px;background:#f8fafc;color:#475569;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s}
+.iw-rv-inline:hover{background:#22c55e;color:#fff;border-color:#22c55e}
 .iw-extra{font-size:10px;color:#94a3b8;margin-bottom:10px}
 .iw-divider{height:1px;background:#f1f5f9;margin:8px 0}
 .iw-btn{width:100%;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
@@ -174,7 +181,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .iw-memo-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .iw-memo-title{font-size:10px;color:#94a3b8;font-weight:600}
 .iw-memo-status{font-size:9px;color:#94a3b8}
-.iw-memo textarea{width:100%;height:52px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:11px;resize:vertical;outline:none;font-family:sans-serif;color:#334155;background:#f8fafc;box-sizing:border-box}
+.iw-memo textarea{width:100%;height:90px;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:11px;resize:vertical;outline:none;font-family:sans-serif;color:#334155;background:#f8fafc;box-sizing:border-box}
 .iw-memo textarea:focus{border-color:#3b82f6}
 .iw-memo-actions{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
 .iw-memo-len{font-size:9px;color:#cbd5e1}
@@ -188,7 +195,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .iw-photo-thumb img{width:100%;height:100%;object-fit:cover}
 .iw-photo-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;opacity:0;transition:opacity .15s}
 .iw-photo-thumb:hover .iw-photo-del{opacity:1}
-.iw-photo-add{aspect-ratio:1;border-radius:5px;border:1.5px dashed #e2e8f0;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:9px;color:#94a3b8;gap:1px;transition:all .15s}
+.iw-photo-add{height:36px;border-radius:5px;border:1.5px dashed #e2e8f0;display:flex;flex-direction:row;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:#94a3b8;gap:5px;transition:all .15s;padding:0 10px}
+.iw-photos:has(.iw-photo-thumb) .iw-photo-add{aspect-ratio:1;height:auto;padding:0;flex-direction:column;font-size:9px;gap:1px}
 .iw-photo-add:hover{border-color:#3b82f6;color:#3b82f6;background:#f0f9ff}
 .iw-photo-add span:first-child{font-size:14px}
 .iw-navi-row{display:grid;grid-template-columns:1fr auto;gap:4px}
@@ -1053,7 +1061,7 @@ function renderPopup(iwEl,idx,d,iw){
       <span class="iw-close" onclick="closeIw()">✕</span>
     </div>
     <div class="iw-name">${esc(d.name)}</div>
-    ${d.address?`<div class="iw-addr">📍 ${esc(d.address)}</div>`:''}
+    ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
     ${extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
     <div class="iw-divider"></div>
 
@@ -1065,7 +1073,10 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-memo">
       <div class="iw-memo-header">
         <span class="iw-memo-title">📝 점검 메모</span>
-        <span class="iw-memo-status" id="memoSt-${idx}"></span>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span class="iw-memo-status" id="memoSt-${idx}"></span>
+          <button class="iw-rv-inline" onclick="openPhotoSheet(${idx})">📷 사진추가</button>
+        </div>
       </div>
       <textarea id="memo-${idx}" placeholder="점검 결과, 특이사항 입력..." oninput="onMemoInput(${idx},this)">${esc(memo)}</textarea>
       <div class="iw-memo-actions">
@@ -1075,18 +1086,11 @@ function renderPopup(iwEl,idx,d,iw){
           <button class="iw-memo-del" onclick="deleteMemoNow(${idx})">🗑 삭제</button>
         </div>
       </div>
+      <div class="iw-photos" id="photoGrid-${idx}"></div>
     </div>
 
     <div class="iw-divider"></div>
 
-    <div class="iw-photos" id="photoGrid-${idx}">
-      ${photos.map(p=>`<div class="iw-photo-thumb"><img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')"><button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button></div>`).join('')}
-      <label class="iw-photo-add" style="cursor:pointer"><input type="file" accept="image/*" style="display:none" onchange="uploadPhoto(${idx},this)"><span style="font-size:20px">📷</span><span>사진 추가</span></label>
-    </div>
-
-    <div class="iw-divider"></div>
-
-    <button class="iw-rv-btn" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button>
     <div class="iw-navi-row">
       <select class="iw-navi-sel" id="naviSel-${idx}">
         <option value="fs">🚒 금천소방서</option>
@@ -1114,11 +1118,7 @@ function renderPhotoGrid(idx,photos){
       <img src="${p.url}" loading="lazy" onclick="openPhotoViewer('${p.url}','')">
       <button class="iw-photo-del" onclick="deletePhoto(${idx},'${p.id}','${p.url}')">✕</button>
     </div>`).join('');
-  grid.innerHTML=thumbsHtml+`
-    <div class="iw-photo-add" onclick="openPhotoSheet(${idx})">
-      <span>📷</span>
-      <span>추가</span>
-    </div>`;
+  grid.innerHTML=thumbsHtml;
 }
 
 // ━━ 완료 토글 ━━
