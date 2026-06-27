@@ -25,6 +25,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .toast{position:fixed;bottom:20px;right:20px;background:var(--sur);border:1px solid var(--bd2);border-radius:var(--r);padding:10px 16px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:9999;transform:translateY(60px);opacity:0;transition:all .25s;max-width:300px;pointer-events:none}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.ok{border-color:var(--lo)}.toast.err{border-color:var(--hi)}
+
+/* ═══ Modal ═══ */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;align-items:center;justify-content:center;padding:16px}
 .modal-bg.open{display:flex}
 .modal{background:var(--sur);border:1px solid var(--bd2);border-radius:var(--r2);padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
@@ -60,6 +62,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .empty-state p{font-size:14px;margin-bottom:20px}
 
 /* ── 맵 뷰 ── */
+
+/* ═══ Map / Layout ═══ */
 #mapView{display:none;height:100vh;height:100dvh;flex-direction:column}
 .map-header{padding:8px 14px;background:var(--sur);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0;min-height:44px}
 .map-header::-webkit-scrollbar{display:none}
@@ -154,6 +158,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .rv-minimap{position:absolute;bottom:12px;right:12px;width:180px;height:140px;border-radius:8px;overflow:hidden;border:2px solid rgba(255,255,255,.8);box-shadow:0 4px 12px rgba(0,0,0,.5);z-index:300;display:none}
 
 /* 마커 */
+
+/* ═══ Marker ═══ */
 .kk-marker{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);cursor:pointer;transition:all .2s;background:#ef4444}
 .kk-marker:hover{transform:scale(1.5)}
 /* 마커 툴팁 */
@@ -164,6 +170,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .g1{background:#3b82f6}.g2{background:#ef4444}.g3{background:#a78bfa}.g4{background:#f59e0b}.g5{background:#10b981}.g6{background:#ec4899}.g0{background:#7d8590}
 
 /* 팝업 */
+
+/* ═══ InfoWindow ═══ */
 .iw-wrap{background:#fff;border-radius:10px;padding:12px 14px;min-width:240px;max-width:290px;box-shadow:0 4px 20px rgba(0,0,0,.25);font-family:sans-serif;max-height:60vh;overflow-y:auto}
 .iw-photo-add-top{display:block}
 .iw-photo-add-bottom{display:none!important}
@@ -617,11 +625,11 @@ const PHOTO_BUCKET = 'inspection-photos';
 const GROUP_COLORS = ['#3b82f6','#ef4444','#a78bfa','#f59e0b','#10b981','#ec4899'];
 const GROUP_CLS    = ['g1','g2','g3','g4','g5','g6'];
 const STATIONS = {
-  fs:{name:'금천소방서',    lat:37.456287,lng:126.894847},
-  sh:{name:'시흥119안전센터',lat:37.4520,  lng:126.8980}
+  fs:{name:'금천소방서',    lat:37.4647,lng:126.9015},
+  sh:{name:'시흥119안전센터',lat:37.4447,lng:126.9089}
 };
 
-// ━━ 상태 ━━
+/* ══════════ State ══════════ */
 let kakaoMap=null,rvInstance=null,rvMinimapInst=null,rvOverlay=null,minimapOn=false;
 let clusterer=null;
 let rvMode=false,distMode=false,distLine=null,distMarkers=[],distPath=[],satMode=false;
@@ -636,24 +644,69 @@ let doneMap={},memoMap={},photoMap={};
 let groups=[],filterGroup=new Set(['all']),filterText='';
 let excelRows=[],excelHeaders=[];
 
-// ━━ 유틸 ━━
+/* ══════════ Utils & DOM Cache ══════════ */
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+// DOM 캐시 (반복 getElementById 호출 절감)
+const _domCache={};
+function $(id){return _domCache[id]||(_domCache[id]=document.getElementById(id));}
 
-function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast show ${type}`;setTimeout(()=>t.className='toast',4000);}
-function showModal(id){document.getElementById(id).classList.add('open');}
-function hideModal(id){document.getElementById(id).classList.remove('open');}
+function showToast(msg,type=''){const t=$('toast');t.textContent=msg;t.className=`toast show ${type}`;setTimeout(()=>t.className='toast',4000);}
+function showModal(id){$(id).classList.add('open');}
+function hideModal(id){$(id).classList.remove('open');}
 function sb(path,opts={}){return fetch(SB_URL+'/rest/v1/'+path,{headers:SB_HDR,...opts});}
 function sbStore(path,opts={}){return fetch(SB_URL+'/storage/v1/'+path,{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY},...opts});}
 
-// ━━ 초기화 ━━
+/* ══════════ Init ══════════ */
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('mapView').style.display='none';
   loadProjects();
   loadSheetJS();
+  fetchStationCoords();
 });
 
-// ━━ 홈 ━━
+// 소방서/안전센터 정확한 좌표를 Kakao keyword API로 동적 취득 (apt_check 방식)
+async function fetchStationCoords(){
+  const queries={fs:'금천소방서',sh:'시흥119안전센터'};
+  for(const [key,q] of Object.entries(queries)){
+    try{
+      const r=await fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(q)}&size=1`,
+        {headers:{Authorization:'KakaoAK '+REST_KEY}});
+      if(r.ok){
+        const data=await r.json();
+        if(data.documents&&data.documents.length){
+          const d=data.documents[0];
+          STATIONS[key].lat=parseFloat(d.y);
+          STATIONS[key].lng=parseFloat(d.x);
+        }
+      }
+    }catch(e){console.warn('좌표 취득 실패:',q,e);}
+  }
+}
+
+/* ══════════ Home / Project ══════════ */
+// 만료 배지 HTML 생성 (공통)
+function expireBadgeHtml(expire_at){
+  if(!expire_at)return `<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 영구 보관</span>`;
+  const exp=new Date(expire_at);
+  const dDay=Math.ceil((exp-new Date())/(1000*60*60*24));
+  const date=exp.toLocaleDateString('ko-KR');
+  if(dDay<0) return `<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨 (${date})</span>`;
+  if(dDay<=30) return `<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${date}까지</span>`;
+  return `<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${date}까지</span>`;
+}
+// 카드 메타(개소/완료/생성일/만료) HTML 생성 (공통)
+function cardMetaHtml(p){
+  const total=p._total==='-'?'-':(p._total||0);
+  const done=p._done==='-'?'-':(p._done||0);
+  const pct=(typeof total==='number'&&total)?Math.round(done/total*100):0;
+  return `
+    <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${total}개소</span>
+    <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${done}완료 ${pct}%</span>
+    <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+    ${expireBadgeHtml(p.expire_at)}`;
+}
+
 async function loadProjects(){
   try{
     const r=await sb('inspections?select=*&order=created_at.desc');
@@ -663,45 +716,29 @@ async function loadProjects(){
     // 먼저 목록 표시 (건수 없이)
     projs.forEach(p=>{p._total='-';p._done='-';});
     renderProjects(projs);
-    // 건수 비동기 로드 (실패해도 목록은 유지)
-    projs.forEach(async p=>{
-      try{
-        const [ri,rd]=await Promise.all([
-          sb(`inspection_items?inspection_id=eq.${p.id}&select=id`),
-          sb(`inspection_done?inspection_id=eq.${p.id}&select=item_id`)
-        ]);
-        if(ri.ok&&rd.ok){
-          const items=await ri.json();
-          const done=await rd.json();
-          p._total=Array.isArray(items)?items.length:0;
-          p._done=Array.isArray(done)?done.length:0;
-          // 카드 업데이트
+    // 건수 일괄 로드: 전체 items/done을 2번 쿼리로 가져와 JS 집계 (N+1 제거)
+    try{
+      const [ri,rd]=await Promise.all([
+        sb(`inspection_items?select=inspection_id`),
+        sb(`inspection_done?select=inspection_id`)
+      ]);
+      if(ri.ok&&rd.ok){
+        const allItems=await ri.json();
+        const allDone=await rd.json();
+        const totalMap={},doneMap2={};
+        if(Array.isArray(allItems))allItems.forEach(x=>{totalMap[x.inspection_id]=(totalMap[x.inspection_id]||0)+1;});
+        if(Array.isArray(allDone))allDone.forEach(x=>{doneMap2[x.inspection_id]=(doneMap2[x.inspection_id]||0)+1;});
+        projs.forEach(p=>{
+          p._total=totalMap[p.id]||0;
+          p._done=doneMap2[p.id]||0;
           const card=document.getElementById('pcard-'+p.id);
           if(card){
-            const pct=p._total?Math.round(p._done/p._total*100):0;
             const meta=card.querySelector('.project-card-meta');
-            if(meta){
-              const pct=p._total?Math.round(p._done/p._total*100):0;
-              let expireBadge='';
-              if(p.expire_at){
-                const now=new Date();const exp=new Date(p.expire_at);
-                const dDay=Math.ceil((exp-now)/(1000*60*60*24));
-                if(dDay<0) expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨 (${exp.toLocaleDateString('ko-KR')})</span>`;
-                else if(dDay<=30) expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${exp.toLocaleDateString('ko-KR')}까지</span>`;
-                else expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')}까지</span>`;
-              }else{
-                expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 영구 보관</span>`;
-              }
-              meta.innerHTML=`
-                <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${p._total}개소</span>
-                <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${p._done}완료 ${pct}%</span>
-                <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
-                ${expireBadge}`;
-            }
+            if(meta)meta.innerHTML=cardMetaHtml(p);
           }
-        }
-      }catch(e){console.warn('건수 로드 실패',p.id,e);}
-    });
+        });
+      }
+    }catch(e){console.warn('건수 로드 실패',e);}
   }catch(e){
     showToast('프로젝트 로드 실패: '+e.message,'err');
     console.error('loadProjects 오류:',e);
@@ -720,28 +757,8 @@ function renderProjects(list){
     return;
   }
   if(empty)empty.style.display='none';
+  const frag=document.createDocumentFragment();
   list.forEach(p=>{
-    const total=p._total||0;
-    const done=p._done||0;
-    const pct=total?Math.round(done/total*100):0;
-
-    // 만료일 계산
-    let expireBadge='';
-    if(p.expire_at){
-      const now=new Date();
-      const exp=new Date(p.expire_at);
-      const dDay=Math.ceil((exp-now)/(1000*60*60*24));
-      if(dDay<0){
-        expireBadge=`<span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-weight:700">⚠️ 만료됨 (${exp.toLocaleDateString('ko-KR')})</span>`;
-      }else if(dDay<=30){
-        expireBadge=`<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${exp.toLocaleDateString('ko-KR')}까지</span>`;
-      }else{
-        expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${exp.toLocaleDateString('ko-KR')}까지</span>`;
-      }
-    }else{
-      expireBadge=`<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 영구 보관</span>`;
-    }
-
     const card=document.createElement('div');
     card.className='project-card';
     card.id='pcard-'+p.id;
@@ -750,15 +767,11 @@ function renderProjects(list){
       <button class="project-card-edit" onclick="event.stopPropagation();showEditModal('${p.id}')" title="수정">✏️</button>
       <div class="project-card-name">${esc(p.name)}</div>
       <div class="project-card-desc">${esc(p.description||'')}</div>
-      <div class="project-card-meta">
-        <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${total}개소</span>
-        <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${done}완료 ${pct}%</span>
-        <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
-        ${expireBadge}
-      </div>`;
+      <div class="project-card-meta">${cardMetaHtml(p)}</div>`;
     card.onclick=()=>openProject(p);
-    grid.appendChild(card);
+    frag.appendChild(card);
   });
+  grid.appendChild(frag);
 }
 function showCreateModal(){document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';showModal('createModal');}
 
@@ -1025,7 +1038,7 @@ function updateStats(){
   document.getElementById('progLabel').textContent=done+' / '+tot+' ('+pct+'%)';
 }
 
-// ━━ Kakao 지도 ━━
+/* ══════════ Kakao Map ══════════ */
 function initKakaoMap(){
   if(kakaoMap){document.getElementById('mapPh').style.display='none';return Promise.resolve();}
   return new Promise((resolve,reject)=>{
@@ -1075,7 +1088,7 @@ function showDiag(code){
   document.getElementById('diagPanel').style.display='flex';
 }
 
-// ━━ 마커/목록 렌더 ━━
+/* ══════════ Marker & List Render ══════════ */
 function groupColor(d){return '#ef4444';}
 function groupCls(d){return 'g2';}
 
@@ -1206,7 +1219,7 @@ function renderPopup(iwEl,idx,d,iw){
   renderPhotoGrid(idx,photos);
 }
 
-// ━━ 사진 그리드 ━━
+/* ══════════ Photo Grid ══════════ */
 function renderPhotoGrid(idx,photos){
   const grid=document.getElementById(`photoGrid-${idx}`);
   if(!grid)return;
@@ -1367,7 +1380,7 @@ function openPhotoViewer(url,caption){
 }
 function closePhotoViewer(){document.getElementById('photoViewer').classList.remove('open');}
 
-// ━━ 사진 바텀시트 ━━
+/* ══════════ Photo BottomSheet ══════════ */
 let photoSheetIdx=-1;
 function openPhotoSheet(idx){
   if(window.innerWidth>600){
@@ -1412,6 +1425,7 @@ function renderList(){
   const el=document.getElementById('listEl');
   el.innerHTML='';
   if(!items.length){el.innerHTML='<div style="text-align:center;color:var(--mt);font-size:12px;padding:30px">📂 엑셀 업로드로 대상을 추가하세요</div>';return;}
+  const frag=document.createDocumentFragment();
   items.forEach((d,i)=>{
     const isDone=!!doneMap[d.id];
     const color=groupColor(d);
@@ -1438,8 +1452,9 @@ function renderList(){
       // 모바일: 목록 클릭 시 지도 모드로 자동 전환
       if(window.innerWidth<=600)switchToMapMode();
     });
-    el.appendChild(div);
+    frag.appendChild(div);
   });
+  el.appendChild(frag);
 }
 function setActive(idx){
   if(activeIdx>=0)document.getElementById(`item-${activeIdx}`)?.classList.remove('active');
@@ -1455,7 +1470,7 @@ function fitAll(){
   if(!bounds.isEmpty())kakaoMap.setBounds(bounds,50);
 }
 
-// ━━ 엑셀 업로드 ━━
+/* ══════════ Excel Upload ══════════ */
 function showUploadModal(){
   if(!currentProject){showToast('프로젝트를 먼저 선택하세요','err');return;}
   resetUpload();showModal('uploadModal');
@@ -1744,7 +1759,7 @@ async function processResetCol(){
   }
 }
 
-// ━━ 엑셀 출력 ━━
+/* ══════════ Excel Export ══════════ */
 async function exportExcel(){
   if(!window.XLSX){loadSheetJS();await sleep(1500);}
   const stamp=new Date().toISOString().slice(0,10).replace(/-/g,'');
@@ -1834,25 +1849,24 @@ async function searchMap(){
   if(results[0])kakaoMap.panTo(new kakao.maps.LatLng(results[0].lat,results[0].lng));
 }
 
-// ━━ 길찾기 ━━
+/* ══════════ Navigation ══════════ */
 function openNavi(toLat,toLng,toName,stKey){
   const st=STATIONS[stKey]||STATIONS.fs;
   const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // 카카오맵 공식 길찾기 형식: /link/by/{이동수단}/출발(이름,위도,경도)/도착(이름,위도,경도)
+  const sp=`${encodeURIComponent(st.name)},${st.lat},${st.lng}`;
+  const ep=`${encodeURIComponent(toName)},${toLat},${toLng}`;
+  const webUrl=`https://map.kakao.com/link/by/car/${sp}/${ep}`;
   if(isMobile){
-    // 카카오내비 앱 딥링크 (앱 미설치 시 플레이스토어/앱스토어로 이동)
+    // 카카오맵 앱 길찾기 딥링크 (좌표 기반, 자동차)
     const naviUrl=`kakaomap://route?sp=${st.lat},${st.lng}&ep=${toLat},${toLng}&by=CAR`;
-    const storeUrl=`https://map.kakao.com/link/from/${encodeURIComponent(st.name)},${st.lat},${st.lng}/to/${encodeURIComponent(toName)},${toLat},${toLng}`;
     const el=document.createElement('a');
-    el.href=naviUrl;
-    el.style.display='none';
-    document.body.appendChild(el);
-    el.click();
-    document.body.removeChild(el);
-    // 앱 미실행 시 웹으로 폴백
-    setTimeout(()=>{window.open(storeUrl,'_blank');},1500);
+    el.href=naviUrl;el.style.display='none';
+    document.body.appendChild(el);el.click();document.body.removeChild(el);
+    // 앱 미설치 시 웹으로 폴백
+    setTimeout(()=>{window.open(webUrl,'_blank');},1500);
   }else{
-    const url=`https://map.kakao.com/link/from/${encodeURIComponent(st.name)},${st.lat},${st.lng}/to/${encodeURIComponent(toName)},${toLat},${toLng}`;
-    window.open(url,'_blank');
+    window.open(webUrl,'_blank');
   }
 }
 
@@ -1866,7 +1880,7 @@ function updateDistLine(){if(distLine)distLine.setMap(null);if(distPath.length<2
 function finishDist(){distMode=false;document.getElementById('btnDist').classList.remove('on');document.getElementById('btnDist').innerHTML='📏<span class="btn-txt"> 거리재기</span>';if(kakaoMap)kakaoMap.setCursor('');}
 function clearDist(){if(distLine){distLine.setMap(null);distLine=null;}distMarkers.forEach(m=>m.setMap(null));distMarkers=[];distPath=[];document.getElementById('distVal').textContent='0';document.getElementById('distInfo').style.display='none';document.getElementById('btnDistClear').style.display='none';finishDist();}
 
-// ━━ 로드뷰 ━━
+/* ══════════ RoadView ══════════ */
 function setRvMode(on){rvMode=on;const btn=document.getElementById('btnRv');if(on){btn.classList.add('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 위치 클릭...</span>';if(kakaoMap)kakaoMap.setCursor('crosshair');}else{btn.classList.remove('on-rv');btn.innerHTML='🔭<span class="btn-txt"> 로드뷰</span>';if(kakaoMap)kakaoMap.setCursor('');}}
 function toggleRvMode(){setRvMode(!rvMode);}
 function openRvAt(latLng){
