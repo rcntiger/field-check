@@ -116,7 +116,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   .map-header-title{display:none}
   .sidebar.map-mode~.map-wrap .map-toolbar{display:flex!important}
   .sidebar.map-mode~.map-wrap .map-search{display:none}
-  .iw-wrap{max-height:52vh!important;max-width:82vw!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}
+  .iw-wrap{max-height:52vh!important;max-width:82vw!important;overflow-y:scroll!important;-webkit-overflow-scrolling:touch!important;touch-action:pan-y!important}
   .iw-memo textarea{height:90px!important}
   .iw-photos{grid-template-columns:repeat(3,1fr)!important}
 }
@@ -1075,10 +1075,7 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-memo">
       <div class="iw-memo-header">
         <span class="iw-memo-title">📝 점검 메모</span>
-        <div style="display:flex;align-items:center;gap:5px">
-          <span class="iw-memo-status" id="memoSt-${idx}"></span>
-          <button class="iw-rv-inline" onclick="openPhotoSheet(${idx})">📷 추가</button>
-        </div>
+        <span class="iw-memo-status" id="memoSt-${idx}"></span>
       </div>
       <textarea id="memo-${idx}" placeholder="점검 결과, 특이사항 입력..." oninput="onMemoInput(${idx},this)">${esc(memo)}</textarea>
       <div class="iw-memo-actions">
@@ -1088,8 +1085,14 @@ function renderPopup(iwEl,idx,d,iw){
           <button class="iw-memo-del" onclick="deleteMemoNow(${idx})">🗑 삭제</button>
         </div>
       </div>
-      <div class="iw-photos" id="photoGrid-${idx}"></div>
     </div>
+
+    <div class="iw-divider"></div>
+
+    <div style="display:flex;align-items:center;justify-content:flex-start;margin-bottom:5px">
+      <button class="iw-rv-inline" onclick="openPhotoSheet(${idx})">📷 추가</button>
+    </div>
+    <div class="iw-photos" id="photoGrid-${idx}"></div>
 
     <div class="iw-divider"></div>
 
