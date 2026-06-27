@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>현장 확인 점검 지도</title>
+<title>현장 확인 점검 Map</title>
 <style>
 :root{
   --bg:#0d1117;--sur:#161b22;--sur2:#21262d;--sur3:#2d333b;
@@ -256,19 +256,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
   <div class="home-header">
     <div class="home-logo">🚒</div>
     <div>
-      <div class="home-title">현장 확인 점검 지도</div>
+      <div class="home-title">현장 확인 점검 Map</div>
       <div class="home-subtitle">금천소방서</div>
     </div>
   </div>
   <div class="home-content">
     <div class="section-header" style="margin-top:20px">
-      <div class="section-title">점검 계획</div>
+      <div class="section-title">계획 목록</div>
       <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획</button>
     </div>
     <div class="project-grid" id="projectGrid">
       <div class="empty-state" id="projectEmpty" style="grid-column:1/-1;display:none">
         <div class="big">📋</div>
-        <p>등록된 점검 계획이 없습니다</p>
+        <p>등록된 계획 목록이 없습니다</p>
         <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획 만들기</button>
       </div>
     </div>
@@ -896,11 +896,27 @@ async function openProject(proj){
   await loadProjectData();
 }
 async function goHome(){
-  if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});}
-  if(iwOpen){iwOpen.setMap(null);iwOpen=null;}
-  document.getElementById('mapView').style.display='none';
-  document.getElementById('homeView').style.display='block';
-  await loadProjects();
+  try{
+    if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});}
+    if(iwOpen){iwOpen.setMap(null);iwOpen=null;}
+    // 모바일 상태 초기화
+    mobMapMode=false;
+    const sidebar=document.getElementById('sidebar');
+    if(sidebar)sidebar.classList.remove('map-mode');
+    const toggle=document.getElementById('mobToggle');
+    if(toggle)toggle.textContent='🗺️ 지도 보기';
+    const toolbar=document.getElementById('mapToolbar');
+    if(toolbar)toolbar.style.display='none';
+    document.body.style.overflowX='hidden';
+    // 화면 전환
+    const mapView=document.getElementById('mapView');
+    const homeView=document.getElementById('homeView');
+    if(mapView)mapView.style.display='none';
+    if(homeView)homeView.style.display='block';
+    currentProject=null;
+    items=[];overlays={};
+    await loadProjects();
+  }catch(e){console.error('goHome 오류:',e);}
 }
 async function loadProjectData(){
   if(!currentProject)return;
@@ -1084,10 +1100,10 @@ function renderPopup(iwEl,idx,d,iw){
 
   iwEl.innerHTML=`
     <div class="iw-header">
-      <span class="iw-team-badge" style="background:${color}22;color:${color}">${esc(d.group_name||'점검대상')}</span>
+      <span class="iw-team-badge" style="background:${color}22;color:${color}">${isDone?'점검 완료':esc(d.group_name||'점검 대상')}</span>
       <div style="display:flex;align-items:center;gap:5px">
         <button class="iw-done-top${isDone?' is-done':''}" id="doneBtnTop-${idx}" onclick="toggleDone(${idx})">
-          ${isDone?'✓ 완료':'완료'}
+          ${isDone?'✓ 완료':'완료시 클릭'}
         </button>
         <span class="iw-close" onclick="closeIw()">✕</span>
       </div>
@@ -1180,7 +1196,9 @@ async function toggleDone(idx){
   const btn=document.getElementById(`doneBtn-${idx}`);
   if(btn){btn.textContent=newDone?'✓ 점검 완료 (취소)':'점검 완료시 클릭';btn.classList.toggle('is-done',newDone);}
   const btnTop=document.getElementById(`doneBtnTop-${idx}`);
-  if(btnTop){btnTop.textContent=newDone?'✓ 완료':'완료';btnTop.classList.toggle('is-done',newDone);}
+  if(btnTop){btnTop.textContent=newDone?'✓ 완료':'완료시 클릭';btnTop.classList.toggle('is-done',newDone);}
+  const badge=document.querySelector(`#doneBtnTop-${idx}`)?.closest('.iw-wrap')?.querySelector('.iw-team-badge');
+  if(badge){badge.textContent=newDone?'점검 완료':(d.group_name||'점검 대상');}
   const dateRow=document.getElementById(`dateRow-${idx}`);
   if(dateRow){
     dateRow.style.display=newDone?'flex':'none';
