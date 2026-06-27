@@ -103,9 +103,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .done-badge{display:none;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(63,185,80,.12);color:var(--lo);font-weight:600;align-items:center;gap:3px}
 @media(max-width:600px){
   .sidebar{width:100%;height:auto;max-height:calc(100dvh - 44px - 48px);border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
-  .map-wrap{flex:1;min-height:0;height:0}
-  #map{width:100%;height:100%}
+  .map-wrap{flex:1;min-height:0;min-width:0}
+  #map{width:100%;height:100%;min-height:0}
+  .layout{height:100%}
   .sidebar.map-mode{display:none!important}
+  .sidebar.map-mode~.map-wrap{height:100%}
   .mob-toggle{display:block!important}
   .map-toolbar{display:none!important}
   .map-search{display:none!important}
