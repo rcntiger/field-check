@@ -86,8 +86,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .filter-row{display:flex;gap:5px;flex-wrap:wrap}
 .fbtn{padding:4px 9px;border-radius:20px;border:1px solid var(--bd2);background:var(--sur2);color:var(--mt);font-size:11px;cursor:pointer;user-select:none;transition:all .12s}
 .fbtn.active{color:#fff;border-color:transparent;background:var(--ac)}
-.fbtn.g1.active{background:#3b82f6}.fbtn.g2.active{background:#ef4444}.fbtn.g3.active{background:#a78bfa}
-.fbtn.g4.active{background:#f59e0b}.fbtn.g5.active{background:#10b981}.fbtn.g6.active{background:#ec4899}
+.fbtn.g1.active{background:#3b5fc4;color:#fff}.fbtn.g2.active{background:#c0392b;color:#fff}.fbtn.g3.active{background:#7c3aed;color:#fff}
+.fbtn.g4.active{background:#b45309;color:#fff}.fbtn.g5.active{background:#059669;color:#fff}.fbtn.g6.active{background:#be185d;color:#fff}
 .dcnt{opacity:.7;font-size:10px;margin-left:1px}
 .search-wrap input{width:100%;padding:7px 9px}
 .list{flex:1;overflow-y:auto;padding:5px}
@@ -481,6 +481,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <div style="font-size:12px;color:var(--mt);flex:1" id="uploadFileInfo"></div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          <label style="font-size:11px;color:var(--mt)">헤더 행:</label>
+          <select id="headerRowSelect" onchange="changeHeaderRow()" style="padding:4px 7px;font-size:11px;background:var(--sur2);border:1px solid var(--bd2);color:var(--tx);border-radius:5px">
+            <option value="0">1행</option>
+            <option value="1" selected>2행</option>
+            <option value="2">3행</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           <label style="font-size:11px;color:var(--mt)">시트:</label>
           <select id="sheetSelect" onchange="changeSheet()" style="padding:4px 7px;font-size:11px;background:var(--sur2);border:1px solid var(--bd2);color:var(--tx);border-radius:5px"></select>
         </div>
@@ -645,7 +653,7 @@ const JS_KEY  = 'a5e543d870953c97c0775ff90846c81b';
 const REST_KEY= '679e96ad11a237d821892915c0d0a7d8';
 const SB_HDR  = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
 const PHOTO_BUCKET = 'inspection-photos';
-const GROUP_COLORS = ['#3b82f6','#ef4444','#a78bfa','#f59e0b','#10b981','#ec4899'];
+const GROUP_COLORS = ['#3b5fc4','#c0392b','#7c3aed','#b45309','#059669','#be185d'];
 const GROUP_CLS    = ['g1','g2','g3','g4','g5','g6'];
 let STATIONS = {
   fs:{key:'fs',name:'금천소방서',    lat:37.4647,lng:126.9015},
@@ -987,6 +995,9 @@ async function loadProjectData(){
       sb(`inspection_photos?inspection_id=eq.${id}&order=created_at.asc`),
     ]);
     items=await rItems.json();
+    // 그룹 색상 맵 초기화 (순서 보장을 위해 items 순서대로 등록)
+    Object.keys(_groupColorMap).forEach(k=>delete _groupColorMap[k]);
+    items.forEach(d=>{if(d.group_name)groupColor(d);});
     const doneArr=await rDone.json();
     const memoArr=await rMemo.json();
     const photosArr=await rPhotos.json();
@@ -1122,8 +1133,16 @@ function showDiag(code){
 }
 
 /* ══════════ Marker & List Render ══════════ */
-function groupColor(d){return '#ef4444';}
-function groupCls(d){return 'g2';}
+const _groupColorMap={};
+function groupColor(d){
+  if(!d.group_name)return GROUP_COLORS[0];
+  if(!_groupColorMap[d.group_name]){
+    const keys=Object.keys(_groupColorMap);
+    _groupColorMap[d.group_name]=GROUP_COLORS[keys.length%GROUP_COLORS.length];
+  }
+  return _groupColorMap[d.group_name];
+}
+function groupCls(d){return 'g'+(Object.keys(_groupColorMap).indexOf(d.group_name||'')+1);}
 
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});
@@ -1552,16 +1571,31 @@ function loadSheet(idx){
   if(!currentWb)return;
   const ws=currentWb.Sheets[currentWb.SheetNames[idx]];
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  // 헤더 행 자동 탐지 (첫 비어있지 않은 행)
-  let headerRow=0;
-  for(let i=0;i<Math.min(5,rows.length);i++){
-    if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}
+  // 헤더 행 선택값 반영 (기본 2행=index 1)
+  const sel=document.getElementById('headerRowSelect');
+  let headerRow=sel?+sel.value:1;
+  // 선택한 행이 비어있으면 다음 비어있지 않은 행으로
+  if(!rows[headerRow]?.some(c=>String(c).trim())){
+    for(let i=0;i<Math.min(5,rows.length);i++){
+      if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}
+    }
   }
   excelHeaders=rows[headerRow].map(c=>String(c).trim());
-  excelRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  const dataRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  // ━━ 병합 셀 forward fill: 빈 칸을 위 행 값으로 채움 ━━
+  const lastVals=new Array(excelHeaders.length).fill('');
+  excelRows=dataRows.map(r=>{
+    return r.map((c,i)=>{
+      const v=String(c).trim();
+      if(v){lastVals[i]=v;return v;}
+      // 빈 칸 → 위 값 유지 (단, 숫자형 컬럼 제외: 연번 등은 채우지 않음)
+      return lastVals[i]||'';
+    });
+  });
   document.getElementById('uploadFileInfo').textContent=`📊 ${currentWb.SheetNames[idx]} · ${excelRows.length}행`;
   buildColSelects();
 }
+function changeHeaderRow(){loadSheet(+document.getElementById('sheetSelect').value||0);}
 function buildColSelects(){
   const none='<option value="">-- 없음 --</option>';
   const opts=excelHeaders.map((h,i)=>`<option value="${i}">${h||'(컬럼'+i+')'}</option>`).join('');
@@ -1578,15 +1612,102 @@ function buildColSelects(){
 function buildPreview(){
   const tbl=document.getElementById('previewTable');
   tbl.innerHTML='';
+
+  // 현재 선택된 컬럼 인덱스 가져오기
+  function getSelIdx(id){const v=document.getElementById(id)?.value;return v!==''&&v!==undefined?+v:-1;}
+  const selMap={
+    [getSelIdx('colName')]:'이름',
+    [getSelIdx('colAddr')]:'주소',
+    [getSelIdx('colGroup')]:'그룹',
+    [getSelIdx('colExtra')]:'추가정보',
+  };
+  const colColors={'이름':'rgba(47,129,247,.25)','주소':'rgba(34,197,94,.25)','그룹':'rgba(251,146,60,.25)','추가정보':'rgba(168,85,247,.25)'};
+
+  // 컬럼 클릭 메뉴
+  function onColClick(colIdx,e){
+    document.querySelectorAll('.col-menu').forEach(m=>m.remove());
+    const menu=document.createElement('div');
+    menu.className='col-menu';
+    menu.style.cssText=`position:fixed;z-index:9999;background:var(--sur);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.5);padding:6px;min-width:130px;font-size:12px`;
+    menu.style.left=Math.min(e.clientX,window.innerWidth-150)+'px';
+    menu.style.top=Math.min(e.clientY+4,window.innerHeight-200)+'px';
+    const options=[
+      {label:'📛 이름 컬럼',id:'colName'},
+      {label:'📍 주소 컬럼',id:'colAddr'},
+      {label:'👥 그룹/팀 컬럼',id:'colGroup'},
+      {label:'ℹ️ 추가정보 컬럼',id:'colExtra'},
+      {label:'— 선택 해제',id:'none'},
+    ];
+    options.forEach(opt=>{
+      const btn=document.createElement('button');
+      btn.textContent=opt.label;
+      btn.style.cssText='display:block;width:100%;text-align:left;padding:6px 10px;background:none;border:none;color:var(--tx);cursor:pointer;border-radius:5px';
+      btn.onmouseenter=()=>btn.style.background='var(--sur2)';
+      btn.onmouseleave=()=>btn.style.background='none';
+      btn.onclick=()=>{
+        if(opt.id==='none'){
+          // 이 컬럼이 선택된 셀렉트 초기화
+          ['colName','colAddr','colGroup','colExtra'].forEach(id=>{
+            const sel=document.getElementById(id);
+            if(sel&&+sel.value===colIdx)sel.value='';
+          });
+        }else{
+          const sel=document.getElementById(opt.id);
+          if(sel)sel.value=String(colIdx);
+        }
+        menu.remove();
+        buildPreview();
+      };
+      menu.appendChild(btn);
+    });
+    document.body.appendChild(menu);
+    setTimeout(()=>document.addEventListener('click',()=>menu.remove(),{once:true}),0);
+  }
+
+  // 컬럼 번호 행
+  const numRow=document.createElement('tr');
+  excelHeaders.forEach((_,i)=>{
+    const td=document.createElement('td');
+    td.textContent=(i+1)+'열';
+    const label=selMap[i];
+    td.style.cssText=`padding:2px 8px;font-size:9px;color:var(--ac);font-weight:700;text-align:center;border:1px solid var(--bd2);background:${label?colColors[label]:'rgba(47,129,247,.08)'};cursor:pointer`;
+    td.title='클릭하여 컬럼 지정';
+    td.onclick=e=>onColClick(i,e);
+    numRow.appendChild(td);
+  });
+  tbl.appendChild(numRow);
+
+  // 헤더명 행
   const tr=document.createElement('tr');
-  excelHeaders.forEach(h=>{const th=document.createElement('th');th.textContent=h;th.style.cssText='padding:4px 8px;background:rgba(255,255,255,.05);font-size:10px;color:var(--mt);white-space:nowrap;border:1px solid var(--bd2)';tr.appendChild(th);});
+  excelHeaders.forEach((h,i)=>{
+    const th=document.createElement('th');
+    const label=selMap[i];
+    th.innerHTML=`${h||'(없음)'}${label?`<br><span style="font-size:9px;color:var(--ac)">[${label}]</span>`:''}`;
+    th.style.cssText=`padding:4px 8px;font-size:10px;color:var(--mt);white-space:nowrap;border:1px solid var(--bd2);cursor:pointer;background:${label?colColors[label]:'rgba(255,255,255,.05)'}`;
+    th.title='클릭하여 컬럼 지정';
+    th.onclick=e=>onColClick(i,e);
+    tr.appendChild(th);
+  });
   tbl.appendChild(tr);
+
+  // 데이터 행
   excelRows.slice(0,3).forEach(r=>{
     const row=document.createElement('tr');
-    r.forEach(c=>{const td=document.createElement('td');td.textContent=String(c).substring(0,20);td.style.cssText='padding:4px 8px;font-size:11px;color:var(--tx);border:1px solid var(--bd2);white-space:nowrap';row.appendChild(td);});
+    r.forEach((c,i)=>{
+      const td=document.createElement('td');
+      const label=selMap[i];
+      td.textContent=String(c).substring(0,20);
+      td.style.cssText=`padding:4px 8px;font-size:11px;color:var(--tx);border:1px solid var(--bd2);white-space:nowrap;background:${label?colColors[label]:'transparent'}`;
+      row.appendChild(td);
+    });
     tbl.appendChild(row);
   });
 }
+
+// 컬럼 선택 변경시 미리보기 갱신
+document.addEventListener('change',e=>{
+  if(['colName','colAddr','colGroup','colExtra'].includes(e.target.id))buildPreview();
+});
 async function processUpload(){
   const ci={name:document.getElementById('colName').value,addr:document.getElementById('colAddr').value,group:document.getElementById('colGroup').value,extra:document.getElementById('colExtra').value};
   if(ci.name===''){showToast('이름 컬럼을 선택하세요','err');return;}
@@ -1703,10 +1824,19 @@ function loadResetSheet(idx){
   if(!resetWb)return;
   const ws=resetWb.Sheets[resetWb.SheetNames[idx]];
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-  let headerRow=0;
-  for(let i=0;i<Math.min(5,rows.length);i++){if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}}
+  let headerRow=1;
+  if(!rows[1]?.some(c=>String(c).trim())){
+    for(let i=0;i<Math.min(5,rows.length);i++){if(rows[i].some(c=>String(c).trim())){headerRow=i;break;}}
+  }
   resetHeaders=rows[headerRow].map(c=>String(c).trim());
-  resetRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  const dataRows=rows.slice(headerRow+1).filter(r=>r.some(c=>String(c).trim()));
+  // 병합 셀 forward fill
+  const lastVals=new Array(resetHeaders.length).fill('');
+  resetRows=dataRows.map(r=>r.map((c,i)=>{
+    const v=String(c).trim();
+    if(v){lastVals[i]=v;return v;}
+    return lastVals[i]||'';
+  }));
   buildResetColSelects();
 }
 function buildResetColSelects(){
@@ -1724,12 +1854,33 @@ function buildResetColSelects(){
 function buildResetPreview(){
   const tbl=document.getElementById('resetPreviewTable');
   tbl.innerHTML='';
+  // 컬럼 번호 행
+  const numRow=document.createElement('tr');
+  resetHeaders.forEach((_,i)=>{
+    const td=document.createElement('td');
+    td.textContent=i+1+'열';
+    td.style.cssText='padding:2px 8px;font-size:9px;color:var(--ac);font-weight:700;text-align:center;border:1px solid var(--bd2);background:rgba(47,129,247,.08)';
+    numRow.appendChild(td);
+  });
+  tbl.appendChild(numRow);
+  // 헤더명 행
   const tr=document.createElement('tr');
-  resetHeaders.forEach(h=>{const th=document.createElement('th');th.textContent=h;th.style.cssText='padding:4px 8px;background:rgba(255,255,255,.05);font-size:10px;color:var(--mt);white-space:nowrap;border:1px solid var(--bd2)';tr.appendChild(th);});
+  resetHeaders.forEach(h=>{
+    const th=document.createElement('th');
+    th.textContent=h||'(없음)';
+    th.style.cssText='padding:4px 8px;background:rgba(255,255,255,.05);font-size:10px;color:var(--mt);white-space:nowrap;border:1px solid var(--bd2)';
+    tr.appendChild(th);
+  });
   tbl.appendChild(tr);
+  // 데이터 행
   resetRows.slice(0,3).forEach(r=>{
     const row=document.createElement('tr');
-    r.forEach(c=>{const td=document.createElement('td');td.textContent=String(c).substring(0,20);td.style.cssText='padding:4px 8px;font-size:11px;color:var(--tx);border:1px solid var(--bd2);white-space:nowrap';row.appendChild(td);});
+    r.forEach(c=>{
+      const td=document.createElement('td');
+      td.textContent=String(c).substring(0,20);
+      td.style.cssText='padding:4px 8px;font-size:11px;color:var(--tx);border:1px solid var(--bd2);white-space:nowrap';
+      row.appendChild(td);
+    });
     tbl.appendChild(row);
   });
 }
