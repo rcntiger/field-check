@@ -912,6 +912,7 @@ function applyFilter(){
     const o=overlays[i];
     if(o){
       o.overlay?.setMap(hide?null:kakaoMap);
+      o.labelOverlay?.setMap(hide?null:kakaoMap);
       // 클러스터러 계산용 invisible 마커도 같이 빼줘야 카카오 기본 풍선이 남지 않음
       if(clusterer&&o.clMarker&&o.hidden!==hide){
         if(hide)clusterer.removeMarker(o.clMarker);
@@ -1000,7 +1001,7 @@ function groupColor(d){
 function groupCls(d){return 'g'+(Object.keys(_groupColorMap).indexOf(d.group_name||'')+1);}
 
 function renderAllMarkers(){
-  Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});
+  Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
   if(clusterer)clusterer.clear();
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
@@ -1033,18 +1034,21 @@ function addMarker(idx,d){
     _sharedTooltip.style.opacity='1';
   });
   el.addEventListener('mouseleave',()=>{_sharedTooltip.style.opacity='0';});
-  // 모바일: 터치 시 툴팁 1.5초 표시
-  let _tipTimer=null;
-  el.addEventListener('touchstart',()=>{
-    if(iwOpen===iw)return;
-    clearTimeout(_tipTimer);
-    const r=el.getBoundingClientRect();
-    _sharedTooltip.textContent=d.name;
-    _sharedTooltip.style.left=(r.left+r.width/2)+'px';
-    _sharedTooltip.style.top=(r.bottom+6)+'px';
-    _sharedTooltip.style.opacity='1';
-    _tipTimer=setTimeout(()=>{_sharedTooltip.style.opacity='0';},1500);
-  },{passive:true});
+  // 모바일: 이름 말풍선 레이블을 CustomOverlay로 마커 아래 항상 표시
+  let labelOverlay=null;
+  if('ontouchstart' in window){
+    const color=groupColor(d);
+    const labelEl=document.createElement('div');
+    labelEl.style.cssText=`padding:3px 8px;font-size:11px;font-weight:700;color:${color};background:rgba(255,255,255,0.95);border:1.5px solid ${color};border-radius:12px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2);pointer-events:none`;
+    labelEl.textContent=d.name.length>10?d.name.slice(0,10)+'…':d.name;
+    labelOverlay=new kakao.maps.CustomOverlay({
+      position:new kakao.maps.LatLng(d.lat,d.lng),
+      content:labelEl,
+      xAnchor:0.5,yAnchor:-0.3,
+      zIndex:9,
+    });
+    labelOverlay.setMap(kakaoMap);
+  }
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
@@ -1076,7 +1080,7 @@ function addMarker(idx,d){
   }
   el.addEventListener('click',openIw);
   // 모바일: CustomOverlay 내부에서 click이 누락되는 경우가 있어 touchend로 보완
-  let _touchMoved=false;
+  let _touchMoved=false,_tipTimer=null;
   el.addEventListener('touchstart',()=>{_touchMoved=false;},{passive:true});
   el.addEventListener('touchmove',()=>{_touchMoved=true;},{passive:true});
   el.addEventListener('touchend',e=>{if(!_touchMoved){e.preventDefault();openIw();}},{passive:false});
@@ -1087,7 +1091,7 @@ function addMarker(idx,d){
   //    → 완전 투명 1x1 PNG를 마커 이미지로 지정해 원천 차단
   const clMarker=new kakao.maps.Marker({position:new kakao.maps.LatLng(d.lat,d.lng),image:getTransparentMarkerImage()});
   if(clusterer)clusterer.addMarker(clMarker,true);
-  overlays[idx]={overlay,iw,clMarker,hidden:false};
+  overlays[idx]={overlay,iw,clMarker,labelOverlay,hidden:false};
 }
 
 function renderPopup(iwEl,idx,d,iw){
