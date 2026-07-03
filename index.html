@@ -169,8 +169,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
 .kk-marker{width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.6);cursor:pointer;transition:all .2s;background:#ef4444}
 .kk-marker:hover{transform:scale(1.5)}
 /* 마커 툴팁 */
-.mk-tooltip{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,.92);color:#f1f5f9;font-size:11px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:999;opacity:0;transition:opacity .15s}
-.mk-tooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:rgba(15,23,42,.92)}
+.mk-tooltip{position:fixed;background:rgba(15,23,42,.92);color:#f1f5f9;font-size:11px;font-weight:600;padding:4px 8px;border-radius:5px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.5);z-index:9999;opacity:0;transition:opacity .15s;transform:translateX(-50%)}
+.mk-tooltip::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-bottom-color:rgba(15,23,42,.92)}
 .kk-marker.done{background:#22c55e!important;width:14px!important;height:14px!important;box-shadow:0 2px 8px rgba(34,197,94,.6)!important}
 .kk-marker.active-mk{width:20px!important;height:20px!important;border:3px solid #fff!important;box-shadow:0 0 0 3px rgba(255,255,255,.5),0 3px 10px rgba(0,0,0,.7)!important}
 .kk-marker.g1{background:#3b82f6}.kk-marker.g2{background:#ef4444}.kk-marker.g3{background:#a78bfa}.kk-marker.g4{background:#f59e0b}.kk-marker.g5{background:#10b981}.kk-marker.g6{background:#ec4899}.kk-marker.g0{background:#7d8590}
@@ -352,6 +352,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <button class="tool-btn" id="btnRv" onclick="toggleRvMode()">🔭<span class="btn-txt"> 로드뷰</span></button>
         <button class="tool-btn" id="btnDistClear" onclick="clearDist()" style="display:none;font-size:11px;color:var(--hi)">✕<span class="btn-txt"> 초기화</span></button>
         <button class="tool-btn" onclick="showStationModal()" style="margin-top:16px;border-top:1px solid var(--bd2);padding-top:10px">⚙️<span class="btn-txt"> 출발지</span></button>
+        <button class="tool-btn" onclick="mapZoomIn()" style="margin-top:16px;border-top:1px solid var(--bd2);padding-top:10px;font-size:16px;font-weight:700;letter-spacing:0">＋</button>
+        <button class="tool-btn" onclick="mapZoomOut()" style="font-size:16px;font-weight:700;letter-spacing:0">－</button>
       </div>
       <div class="dist-info" id="distInfo">클릭: 측정점 &nbsp;|&nbsp; 더블클릭: 완료<br>거리: <span id="distVal">0</span></div>
       <div class="rv-panel" id="rvPanel">
@@ -549,6 +551,7 @@ let kakaoMap=null,rvInstance=null,rvMinimapInst=null,rvOverlay=null,minimapOn=fa
 let clusterer=null;
 let rvMode=false,distMode=false,distLine=null,distMarkers=[],distPath=[],satMode=false;
 let roadPolylines=[],iwOpen=null,activeMarkerEl=null,lastIw=null,activeIdx=-1;
+let _sharedTooltip=null;
 let searchMarkers=[],mobMapMode=false;
 let memoTimers={};
 
@@ -574,6 +577,10 @@ const sbClient=()=>SupabaseUtil.getClient();
 /* ══════════ Init ══════════ */
 document.addEventListener('DOMContentLoaded',()=>{
   SupabaseUtil.init(SB_URL,SB_KEY);
+  // 공유 툴팁 요소 (body에 단 하나, stacking context 문제 해결)
+  _sharedTooltip=document.createElement('div');
+  _sharedTooltip.className='mk-tooltip';
+  document.body.appendChild(_sharedTooltip);
   document.getElementById('mapView').style.display='none';
   loadStations();
   loadProjects();
@@ -1016,13 +1023,16 @@ function addMarker(idx,d){
   el.id='mk-'+idx;
   el.style.position='relative';
 
-  // 툴팁
-  const tip=document.createElement('div');
-  tip.className='mk-tooltip';
-  tip.textContent=d.name;
-  el.appendChild(tip);
-  el.addEventListener('mouseenter',()=>{tip.style.opacity='1';});
-  el.addEventListener('mouseleave',()=>{tip.style.opacity='0';});
+  // 툴팁: body에 단 하나의 공유 툴팁 요소를 사용 (stacking context 탈출)
+  el.addEventListener('mouseenter',()=>{
+    if(iwOpen===iw)return;
+    const r=el.getBoundingClientRect();
+    _sharedTooltip.textContent=d.name;
+    _sharedTooltip.style.left=(r.left+r.width/2)+'px';
+    _sharedTooltip.style.top=(r.bottom+6)+'px';
+    _sharedTooltip.style.opacity='1';
+  });
+  el.addEventListener('mouseleave',()=>{_sharedTooltip.style.opacity='0';});
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
@@ -1043,13 +1053,20 @@ function addMarker(idx,d){
   const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.1,zIndex:100});
   renderPopup(iwEl,idx,d,iw);
 
-  el.addEventListener('click',()=>{
+  function openIw(){
     if(iwOpen)iwOpen.setMap(null);
     if(activeMarkerEl)activeMarkerEl.classList.remove('active-mk');
     el.classList.add('active-mk');activeMarkerEl=el;
+    _sharedTooltip.style.opacity='0'; // 정보카드 열리면 툴팁 숨김
     iw.setMap(kakaoMap);iwOpen=iw;
     setActive(idx);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
-  });
+  }
+  el.addEventListener('click',openIw);
+  // 모바일: CustomOverlay 내부에서 click이 누락되는 경우가 있어 touchend로 보완
+  let _touchMoved=false;
+  el.addEventListener('touchstart',()=>{_touchMoved=false;},{passive:true});
+  el.addEventListener('touchmove',()=>{_touchMoved=true;},{passive:true});
+  el.addEventListener('touchend',e=>{if(!_touchMoved){e.preventDefault();openIw();}},{passive:false});
   const overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:el,zIndex:10});
   overlay.setMap(kakaoMap);
   // 클러스터러용 invisible 마커 (줌 레벨 6 이상에서 클러스터로 묶임)
@@ -1877,6 +1894,8 @@ function openNavi(toLat,toLng,toName,stKey){
 }
 
 // ━━ 위성 ━━
+function mapZoomIn(){if(kakaoMap)kakaoMap.setLevel(kakaoMap.getLevel()-1,{animate:true});}
+function mapZoomOut(){if(kakaoMap)kakaoMap.setLevel(kakaoMap.getLevel()+1,{animate:true});}
 function toggleSat(){satMode=!satMode;const btn=document.getElementById('btnSat');if(satMode){kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);btn.classList.add('on-sat');btn.innerHTML='🗺️<span class="btn-txt"> 일반</span>';}else{kakaoMap.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);btn.classList.remove('on-sat');btn.innerHTML='🛰️<span class="btn-txt"> 위성</span>';}}
 
 // ━━ 거리재기 ━━
