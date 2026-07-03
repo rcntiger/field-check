@@ -1033,6 +1033,18 @@ function addMarker(idx,d){
     _sharedTooltip.style.opacity='1';
   });
   el.addEventListener('mouseleave',()=>{_sharedTooltip.style.opacity='0';});
+  // 모바일: 터치 시 툴팁 1.5초 표시
+  let _tipTimer=null;
+  el.addEventListener('touchstart',()=>{
+    if(iwOpen===iw)return;
+    clearTimeout(_tipTimer);
+    const r=el.getBoundingClientRect();
+    _sharedTooltip.textContent=d.name;
+    _sharedTooltip.style.left=(r.left+r.width/2)+'px';
+    _sharedTooltip.style.top=(r.bottom+6)+'px';
+    _sharedTooltip.style.opacity='1';
+    _tipTimer=setTimeout(()=>{_sharedTooltip.style.opacity='0';},1500);
+  },{passive:true});
 
   const iwEl=document.createElement('div');
   iwEl.className='iw-wrap';
@@ -1057,7 +1069,8 @@ function addMarker(idx,d){
     if(iwOpen)iwOpen.setMap(null);
     if(activeMarkerEl)activeMarkerEl.classList.remove('active-mk');
     el.classList.add('active-mk');activeMarkerEl=el;
-    _sharedTooltip.style.opacity='0'; // 정보카드 열리면 툴팁 숨김
+    _sharedTooltip.style.opacity='0';
+    clearTimeout(_tipTimer); // 정보카드 열리면 툴팁 타이머 취소
     iw.setMap(kakaoMap);iwOpen=iw;
     setActive(idx);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
   }
