@@ -354,6 +354,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--ac)}
         <button class="tool-btn" onclick="showStationModal()" style="margin-top:16px;border-top:1px solid var(--bd2);padding-top:10px">⚙️<span class="btn-txt"> 출발지</span></button>
         <button class="tool-btn" onclick="mapZoomIn()" style="margin-top:16px;border-top:1px solid var(--bd2);padding-top:10px;font-size:16px;font-weight:700;letter-spacing:0">＋</button>
         <button class="tool-btn" onclick="mapZoomOut()" style="font-size:16px;font-weight:700;letter-spacing:0">－</button>
+        <button class="tool-btn" id="btnMyLoc" onclick="toggleMyLocation()" style="font-size:15px">📍</button>
       </div>
       <div class="dist-info" id="distInfo">클릭: 측정점 &nbsp;|&nbsp; 더블클릭: 완료<br>거리: <span id="distVal">0</span></div>
       <div class="rv-panel" id="rvPanel">
@@ -1918,6 +1919,59 @@ function openNavi(toLat,toLng,toName,stKey){
 // ━━ 위성 ━━
 function mapZoomIn(){if(kakaoMap)kakaoMap.setLevel(kakaoMap.getLevel()-1,{animate:true});}
 function mapZoomOut(){if(kakaoMap)kakaoMap.setLevel(kakaoMap.getLevel()+1,{animate:true});}
+
+/* ══════════ 현위치 ══════════ */
+let _myLocMarker=null,_myLocCircle=null,_myLocWatch=null;
+
+function toggleMyLocation(){
+  const btn=document.getElementById('btnMyLoc');
+  if(_myLocWatch!==null){
+    // 추적 종료
+    navigator.geolocation.clearWatch(_myLocWatch);
+    _myLocWatch=null;
+    _myLocMarker?.setMap(null);_myLocMarker=null;
+    _myLocCircle?.setMap(null);_myLocCircle=null;
+    btn.classList.remove('on');
+    showToast('현위치 추적 종료','');
+    return;
+  }
+  if(!navigator.geolocation){showToast('이 브라우저는 위치 기능을 지원하지 않습니다','err');return;}
+  btn.textContent='⏳';
+  _myLocWatch=navigator.geolocation.watchPosition(
+    pos=>{
+      const {latitude:lat,longitude:lng,accuracy}=pos.coords;
+      const latlng=new kakao.maps.LatLng(lat,lng);
+      // 마커 (파란 원형)
+      if(!_myLocMarker){
+        const el=document.createElement('div');
+        el.style.cssText='width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.35)';
+        _myLocMarker=new kakao.maps.CustomOverlay({position:latlng,content:el,zIndex:200});
+        _myLocMarker.setMap(kakaoMap);
+        kakaoMap.panTo(latlng);
+      }else{
+        _myLocMarker.setPosition(latlng);
+      }
+      // 정확도 원
+      if(_myLocCircle){_myLocCircle.setMap(null);}
+      _myLocCircle=new kakao.maps.Circle({
+        center:latlng,radius:accuracy,
+        strokeWeight:1,strokeColor:'#2563eb',strokeOpacity:.4,
+        fillColor:'#2563eb',fillOpacity:.08,
+      });
+      _myLocCircle.setMap(kakaoMap);
+      btn.textContent='📍';
+      btn.classList.add('on');
+    },
+    err=>{
+      btn.textContent='📍';
+      btn.classList.remove('on');
+      _myLocWatch=null;
+      const msg={1:'위치 권한이 거부됐습니다',2:'위치를 가져올 수 없습니다',3:'위치 요청 시간 초과'};
+      showToast(msg[err.code]||'위치 오류','err');
+    },
+    {enableHighAccuracy:true,timeout:10000,maximumAge:3000}
+  );
+}
 function toggleSat(){satMode=!satMode;const btn=document.getElementById('btnSat');if(satMode){kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);btn.classList.add('on-sat');btn.innerHTML='🗺️<span class="btn-txt"> 일반</span>';}else{kakaoMap.setMapTypeId(kakao.maps.MapTypeId.ROADMAP);btn.classList.remove('on-sat');btn.innerHTML='🛰️<span class="btn-txt"> 위성</span>';}}
 
 // ━━ 거리재기 ━━
