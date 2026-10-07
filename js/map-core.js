@@ -1,5 +1,5 @@
 /* field-check · js/map-core.js — 카카오 지도 초기화 · 진단 · 항목 활성화/전체 보기 */
-AppFiles.reg('js/map-core.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/map-core.js','v3.1.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Kakao Map ══════════ */
 function initKakaoMap(){

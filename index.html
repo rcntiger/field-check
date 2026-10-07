@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<meta name="theme-color" content="#0e5650">
 <title>현장 확인 점검 Map</title>
 <script>
 /* ═══════════════════════════════════════════════════════════════════════
@@ -13,7 +14,7 @@
    · 버전을 올릴 때는 손으로 고치지 말고:  python tools/bump-version.py 2.0.1
      (이 줄과 모든 파일의 버전 표시를 한 번에 바꾼다.  확인만:  python tools/bump-version.py --check)
    ═══════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 'v3.0.0';
+const APP_VERSION = 'v3.1.0';
 
 const AppFiles = {
   // 불러오는 순서 = 아래 적힌 순서. 파일을 추가하면 여기에도 적는다.
@@ -83,26 +84,28 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
 
 <!-- ════ 홈 뷰 ════ -->
 <div id="homeView">
-  <div class="home-header">
-    <div class="home-logo">🚒</div>
-    <div>
-      <div class="home-title">현장 확인 점검 Map</div>
-      <div class="home-subtitle">금천소방서</div>
+  <div class="home-band">
+    <div class="home-band-in">
+      <svg class="home-mark" viewBox="0 0 46 46" aria-hidden="true">
+        <path d="M23 3C14.2 3 7.5 9.6 7.5 18.2c0 10.6 12.3 21.9 14.4 23.8a1.6 1.6 0 0 0 2.2 0c2.1-1.9 14.4-13.2 14.4-23.8C38.5 9.6 31.8 3 23 3z" fill="#eefbf7"/>
+        <path d="M15.8 18.6l5.1 5.1 9.5-10" fill="none" stroke="#0e5650" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="home-title">현장 확인 점검</div>
+        <div class="home-subtitle">금천소방서</div>
+      </div>
+      <button class="home-new" onclick="showCreateModal()">+ 새 계획</button>
+      <div class="home-summary" id="homeSummary"></div>
     </div>
   </div>
   <div class="home-content">
-    <div class="section-header" style="margin-top:20px">
-      <div class="section-title">계획 목록</div>
-      <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획</button>
-    </div>
     <div class="project-grid" id="projectGrid">
-      <div class="empty-state" id="projectEmpty" style="grid-column:1/-1;display:none">
-        <div class="big">📋</div>
-        <p>등록된 계획 목록이 없습니다</p>
-        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획 만들기</button>
+      <div class="empty-state" id="projectEmpty" style="display:none">
+        <p><b>아직 계획이 없습니다</b>계획을 만들고 엑셀을 올리면 점검 대상이 지도에 표시됩니다.</p>
+        <button class="btn btn-primary" onclick="showCreateModal()">+ 새 계획</button>
       </div>
     </div>
-    <div id="appVersion" style="text-align:center;color:var(--mt);font-size:10.5px;padding:24px 0 12px;opacity:.6"></div>
+    <div id="appVersion"></div>
   </div>
 </div>
 

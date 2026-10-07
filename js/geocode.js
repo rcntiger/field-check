@@ -1,5 +1,5 @@
 /* field-check · js/geocode.js — 주소 → 좌표 (KakaoGeo) */
-AppFiles.reg('js/geocode.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/geocode.js','v3.1.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 async function geocodeAddr(addr){
   if(!addr)return null;

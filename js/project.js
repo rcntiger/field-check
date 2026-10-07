@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.1.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -12,16 +12,38 @@ function expireBadgeHtml(expire_at){
   if(dDay<=30) return `<span class="badge" style="background:rgba(251,146,60,.15);color:#fb923c;font-weight:700">⏰ D-${dDay} · ${date}까지</span>`;
   return `<span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">📅 ${date}까지</span>`;
 }
-// 카드 메타(개소/완료/생성일/만료) HTML 생성 (공통)
+// 계획 한 줄의 상태 — 왼쪽 색 띠와 진행 막대 색을 정함 (css/home.css 의 data-state)
+//   load: 건수 불러오는 중 · empty: 대상 없음 · run: 진행 중 · done: 모두 완료 · expired: 보관 기한 지남
+function cardState(p){
+  if(p.expire_at&&new Date(p.expire_at)<new Date())return 'expired';
+  if(typeof p._total!=='number')return 'load';
+  if(!p._total)return 'empty';
+  return (p._done||0)>=p._total?'done':'run';
+}
+// 계획 한 줄의 아래쪽(진행 막대 · 건수 · 만든 날 · 보관 기한) HTML 생성 (공통)
 function cardMetaHtml(p){
-  const total=p._total==='-'?'-':(p._total||0);
-  const done=p._done==='-'?'-':(p._done||0);
-  const pct=(typeof total==='number'&&total)?Math.round(done/total*100):0;
+  const loaded=typeof p._total==='number';
+  const total=loaded?p._total:0;
+  const done=loaded?(p._done||0):0;
+  const pct=total?Math.round(done/total*100):0;
+  const num=!loaded?'<span>불러오는 중</span>'
+    :!total?'<span>점검 대상 없음</span>'
+    :`${done} <span>/ ${total}곳 완료</span> ${pct}%`;
   return `
-    <span class="badge" style="background:rgba(47,129,247,.1);color:var(--ac)">${total}개소</span>
-    <span class="badge" style="background:rgba(63,185,80,.1);color:var(--lo)">${done}완료 ${pct}%</span>
-    <span class="badge" style="background:rgba(255,255,255,.05);color:var(--mt)">${new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
-    ${expireBadgeHtml(p.expire_at)}`;
+    <div class="pc-prog"><div class="pc-bar"><i style="width:${pct}%"></i></div><div class="pc-num">${num}</div></div>
+    <div class="pc-info"><span>${new Date(p.created_at).toLocaleDateString('ko-KR')} 만듦</span>${expireBadgeHtml(p.expire_at)}</div>`;
+}
+// 홈 화면 띠의 한 줄 요약 (계획 수 · 전체 대상 · 완료)
+function renderHomeSummary(list,loaded){
+  const el=document.getElementById('homeSummary');
+  if(!el)return;
+  if(!list.length){el.textContent='';return;}
+  if(!loaded){el.innerHTML=`계획 <b>${list.length}</b>개`;return;}
+  const total=list.reduce((n,p)=>n+(p._total||0),0);
+  const done=list.reduce((n,p)=>n+(p._done||0),0);
+  el.innerHTML=total
+    ?`계획 <b>${list.length}</b>개, 점검 대상 <b>${total.toLocaleString()}</b>곳 가운데 <b>${done.toLocaleString()}</b>곳 완료`
+    :`계획 <b>${list.length}</b>개, 아직 올린 점검 대상이 없습니다`;
 }
 
 async function loadProjects(){
@@ -45,10 +67,12 @@ async function loadProjects(){
         p._done=doneMap2[p.id]||0;
         const card=document.getElementById('pcard-'+p.id);
         if(card){
+          card.dataset.state=cardState(p);
           const meta=card.querySelector('.project-card-meta');
           if(meta)meta.innerHTML=cardMetaHtml(p);
         }
       });
+      renderHomeSummary(projs,true);
     }catch(e){console.warn('건수 로드 실패',e);}
   }catch(e){
     showToast('프로젝트 로드 실패: '+e.message,'err');
@@ -63,6 +87,7 @@ function renderProjects(list){
   const empty=document.getElementById('projectEmpty');
   if(empty&&empty.parentNode===grid)grid.removeChild(empty);
   grid.innerHTML='';
+  renderHomeSummary(list,false);
   if(!list.length){
     if(empty){empty.style.display='block';grid.appendChild(empty);}
     return;
@@ -73,13 +98,19 @@ function renderProjects(list){
     const card=document.createElement('div');
     card.className='project-card';
     card.id='pcard-'+p.id;
+    card.dataset.state=cardState(p);
+    card.tabIndex=0;
+    card.setAttribute('role','button');
     card.innerHTML=`
-      <button class="project-card-del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제">✕</button>
-      <button class="project-card-edit" onclick="event.stopPropagation();showEditModal('${p.id}')" title="수정">✏️</button>
+      <div class="project-card-btns">
+        <button class="project-card-btn" onclick="event.stopPropagation();showEditModal('${p.id}')" title="수정" aria-label="계획 수정">✏️</button>
+        <button class="project-card-btn del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제" aria-label="계획 삭제">✕</button>
+      </div>
       <div class="project-card-name">${esc(p.name)}</div>
       <div class="project-card-desc">${esc(p.description||'')}</div>
       <div class="project-card-meta">${cardMetaHtml(p)}</div>`;
     card.onclick=()=>openProject(p);
+    card.onkeydown=e=>{if(e.key==='Enter'&&e.target===card)openProject(p);};
     frag.appendChild(card);
   });
   grid.appendChild(frag);
