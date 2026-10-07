@@ -1,5 +1,5 @@
 /* field-check · js/gps.js — 현위치 */
-AppFiles.reg('js/gps.js','v2.0.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/gps.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ 현위치 ══════════ */
 let _myLocMarker=null,_myLocCircle=null,_myLocWatch=null;

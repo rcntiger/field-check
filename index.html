@@ -13,7 +13,7 @@
    · 버전을 올릴 때는 손으로 고치지 말고:  python tools/bump-version.py 2.0.1
      (이 줄과 모든 파일의 버전 표시를 한 번에 바꾼다.  확인만:  python tools/bump-version.py --check)
    ═══════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 'v2.0.2';
+const APP_VERSION = 'v3.0.0';
 
 const AppFiles = {
   // 불러오는 순서 = 아래 적힌 순서. 파일을 추가하면 여기에도 적는다.
@@ -275,9 +275,34 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
         <option value="12">1년</option>
       </select>
     </div>
+    <div class="form-row">
+      <label>삭제 비밀번호 * (4자 이상)</label>
+      <input type="password" id="projPw" autocomplete="new-password" placeholder="이 계획을 지울 때 입력합니다">
+      <div class="pw-show"><input type="checkbox" id="projPwShow" onchange="togglePwShow('projPw',this.checked)"><span onclick="document.getElementById('projPwShow').click()">비밀번호 보기</span></div>
+      <div class="pw-hint">잊어버리면 관리자 비밀번호로만 지울 수 있습니다.</div>
+    </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-ghost" onclick="hideModal('createModal')">취소</button>
       <button class="btn btn-primary" onclick="createProject()">만들기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ 모달: 계획 삭제 (비밀번호 확인) ════ -->
+<div class="modal-bg" id="deleteModal">
+  <div class="modal" style="max-width:420px">
+    <h3>🗑 계획 삭제</h3>
+    <div class="del-name" id="delProjName"></div>
+    <div class="pw-hint" style="margin:0 0 12px">모든 점검 기록·사진·원본 파일이 함께 지워지며 되돌릴 수 없습니다.</div>
+    <div class="form-row">
+      <label>삭제 비밀번호</label>
+      <input type="password" id="delProjPw" autocomplete="off" placeholder="만들 때 정한 비밀번호 또는 관리자 비밀번호"
+        onkeydown="if(event.key==='Enter')confirmDeleteProject()">
+      <div class="pw-show"><input type="checkbox" id="delProjPwShow" onchange="togglePwShow('delProjPw',this.checked)"><span onclick="document.getElementById('delProjPwShow').click()">비밀번호 보기</span></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="hideModal('deleteModal')">취소</button>
+      <button class="btn btn-primary" id="delProjBtn" style="background:#da3633;border-color:#da3633" onclick="confirmDeleteProject()">삭제</button>
     </div>
   </div>
 </div>

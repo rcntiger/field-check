@@ -8,7 +8,7 @@
 
 ## 주요 기능
 
-- 계획(프로젝트) 카드: 생성·수정·삭제, 진행률, 보관 기한(D-day)
+- 계획(프로젝트) 카드: 생성·수정·삭제, 진행률, 보관 기한(D-day) — **삭제는 만들 때 정한 삭제 비밀번호(또는 관리자 비밀번호) 필요**
 - 엑셀 업로드·컬럼 재설정(공통 `ExcelUtil.createReader`: 시트·헤더 선택, 컬럼 매핑, 행 필터), 원본 파일 보관·내려받기, 결과 엑셀 내보내기
 - 지도: 그룹 색상 마커, 이름표, 클러스터, 그룹 필터, 정렬, 검색, 위성, 거리 재기, 로드뷰, 확대/축소, 현위치
 - 정보카드: 완료 토글·점검일, 메모, 사진(자동 압축), 길찾기(출발지 최대 5개 + 직접 입력)
@@ -19,7 +19,7 @@
 | 구분 | 사용 |
 |---|---|
 | 지도 | Kakao Maps JS SDK (services, clusterer) — **REST 키는 쓰지 않음** |
-| 백엔드 | Supabase (`inspections`, `inspection_items`, `inspection_done`, `inspection_memo`, `inspection_photos` / Storage `inspection-photos`, `inspection-files`) |
+| 백엔드 | Supabase (`inspections`, `inspection_items`, `inspection_done`, `inspection_memo`, `inspection_photos`, `inspection_secrets`, `inspection_admin` / Storage `inspection-photos`, `inspection-files`) |
 | 공통 모듈 | `https://rcntiger.github.io/common/` — logger.js, utils.js, supabase.js, excel.js, keys.js(`APP_KEYS`), kakao-geo.js(`KakaoGeo`) |
 
 - 키·주소는 이 저장소에 두지 않고 `common/keys.js`에서 읽습니다 (`APP_KEYS.SUPABASE.inspec`, `APP_KEYS.KAKAO_JS_KEY`).
@@ -62,6 +62,9 @@ field-check/
 │   ├── mobile.js        모바일 지도/목록 전환
 │   └── init.js          시작 (DOMContentLoaded) · 키보드
 ├── tools/bump-version.py     버전 한 번에 바꾸기 · 배포 전 확인
+├── sql/
+│   ├── v3.0.0_delete_password.sql   삭제 비밀번호용 표·함수·권한 (한 번 실행)
+│   └── set_admin_password.sql       관리자 비밀번호 정하기/바꾸기 (SQL Editor에서만 값을 고쳐 실행)
 ├── .github/workflows/keep-alive.yml
 ├── CHANGELOG.md
 └── README.md
@@ -69,6 +72,15 @@ field-check/
 
 모든 js 파일은 일반 `<script>`(모듈 아님)라서 함수·변수는 전역에서 서로 보입니다.
 파일을 새로 만들면 `index.html`의 `AppFiles.css` / `AppFiles.js` 목록에 이름을 적습니다 (적은 순서대로 불러옴).
+
+## 계획 삭제 비밀번호 (v3.0.0~)
+
+- 계획을 만들 때 삭제 비밀번호를 정합니다. 지울 때 그 비밀번호 또는 관리자 비밀번호를 입력합니다.
+- 비밀번호는 Supabase의 `inspection_secrets` / `inspection_admin` 표에 암호화되어 저장되고, 앱(anon 키)에서는 읽을 수 없습니다.
+- `inspections` 표는 직접 삭제가 막혀 있고 `inspection_delete` 함수로만 지워집니다.
+- 관리자 비밀번호를 바꾸려면 `sql/set_admin_password.sql`을 SQL Editor에 붙여 넣고 **거기에서만** 값을 고쳐 실행합니다.
+  이 저장소는 공개이므로 실제 비밀번호를 적은 파일을 올리지 않습니다.
+- 막는 것은 계획 삭제뿐입니다. 계획 수정과 점검 기록(완료·메모·사진)은 누구나 할 수 있습니다.
 
 ## 버전 · 배포
 

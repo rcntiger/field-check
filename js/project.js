@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v2.0.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -84,7 +84,20 @@ function renderProjects(list){
   });
   grid.appendChild(frag);
 }
-function showCreateModal(){document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';showModal('createModal');}
+function showCreateModal(){
+  document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';
+  document.getElementById('projPw').value='';document.getElementById('projPwShow').checked=false;togglePwShow('projPw',false);
+  showModal('createModal');
+}
+// 비밀번호 칸 보기/가리기
+function togglePwShow(inputId,show){const el=document.getElementById(inputId);if(el)el.type=show?'text':'password';}
+// DB 함수 호출 오류를 사람이 읽을 말로 (v3.0.0 SQL을 아직 실행하지 않은 경우 안내)
+function rpcErrMsg(e){
+  const m=(e&&e.message)||String(e||'');
+  if((e&&(e.code==='PGRST202'||e.code==='42883'))||/could not find the function|does not exist/i.test(m))
+    return 'DB 설정이 아직 적용되지 않았습니다 (sql/v3.0.0_delete_password.sql 실행 필요)';
+  return m;
+}
 
 function showEditModal(id){
   const p=projectList.find(x=>x.id===id);
@@ -140,16 +153,44 @@ async function createProject(){
     d.setMonth(d.getMonth()+parseInt(expireMonths));
     expire_at=d.toISOString();
   }
+  const pw=document.getElementById('projPw').value;
+  if(pw.length<4){showToast('삭제 비밀번호를 4자 이상 입력하세요','err');document.getElementById('projPw').focus();return;}
   try{
-    const [proj]=await SupabaseUtil.insert('inspections',{name,description:desc,expire_at});
+    // 계획과 삭제 비밀번호를 DB 함수로 한 번에 저장 (비밀번호는 암호화되어 보관되고 앱에서는 읽을 수 없음)
+    const {data,error}=await sbClient().rpc('inspection_create',{p_name:name,p_description:desc,p_expire_at:expire_at,p_password:pw});
+    if(error)throw error;
+    const proj=Array.isArray(data)?data[0]:data;
+    if(!proj||proj.id==null)throw new Error('응답 형식 오류');
     hideModal('createModal');
     showToast('프로젝트 생성됨','ok');
     openProject(proj);
-  }catch(e){showToast('생성 실패','err');}
+  }catch(e){showToast('생성 실패: '+rpcErrMsg(e),'err');}
 }
-async function deleteProject(id,name){
-  if(!confirm(`"${name}" 프로젝트를 삭제하시겠습니까?\n(모든 점검 데이터 및 사진, 원본 파일이 삭제됩니다)`))return;
+// 계획 삭제: 비밀번호 창을 연다 (만든 사람의 삭제 비밀번호 또는 관리자 비밀번호)
+let _delTarget=null,_delBusy=false;
+function deleteProject(id,name){
+  _delTarget={id:String(id),name};
+  document.getElementById('delProjName').textContent=name;
+  const pw=document.getElementById('delProjPw');
+  pw.value='';document.getElementById('delProjPwShow').checked=false;togglePwShow('delProjPw',false);
+  showModal('deleteModal');
+  setTimeout(()=>pw.focus(),50);
+}
+async function confirmDeleteProject(){
+  if(!_delTarget||_delBusy)return;
+  const {id}=_delTarget;
+  const pwEl=document.getElementById('delProjPw');
+  const pw=pwEl.value;
+  if(!pw){showToast('비밀번호를 입력하세요','err');pwEl.focus();return;}
+  const btn=document.getElementById('delProjBtn');
+  _delBusy=true;btn.disabled=true;
   try{
+    // 0. 비밀번호 확인 (맞을 때만 아래로 — 사진·파일을 먼저 지우지 않도록)
+    showToast('비밀번호 확인 중...','');
+    const chk=await sbClient().rpc('inspection_check_delete_pw',{p_id:id,p_password:pw});
+    if(chk.error)throw chk.error;
+    if(chk.data!==true){showToast('비밀번호가 맞지 않습니다','err');pwEl.select();return;}
+
     showToast('삭제 중...','');
     const store=sbClient().storage;
 
@@ -172,14 +213,16 @@ async function deleteProject(id,name){
       }
     }catch(e){console.warn('원본 엑셀 Storage 삭제 실패',e);}
 
-    // 3. DB 삭제 (CASCADE 없을 경우 대비 순서대로)
-    await SupabaseUtil.remove('inspection_photos',{inspection_id:id});
-    await SupabaseUtil.remove('inspection_memo',{inspection_id:id});
-    await SupabaseUtil.remove('inspection_done',{inspection_id:id});
-    await SupabaseUtil.remove('inspection_items',{inspection_id:id});
-    await SupabaseUtil.remove('inspections',{id});
+    // 3. DB 삭제 — DB 함수가 비밀번호를 다시 확인하고 딸린 기록까지 한 번에 지움
+    //    (inspections 표는 직접 삭제 권한이 닫혀 있어 이 함수로만 지워짐)
+    const del=await sbClient().rpc('inspection_delete',{p_id:id,p_password:pw});
+    if(del.error)throw del.error;
+    if(del.data!==true)throw new Error('비밀번호가 맞지 않습니다');
 
+    hideModal('deleteModal');
+    _delTarget=null;
     showToast('프로젝트 삭제 완료','ok');
     loadProjects();
-  }catch(e){showToast('삭제 실패: '+e.message,'err');}
+  }catch(e){showToast('삭제 실패: '+rpcErrMsg(e),'err');}
+  finally{_delBusy=false;btn.disabled=false;}
 }

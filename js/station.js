@@ -1,5 +1,5 @@
 /* field-check · js/station.js — 출발지 관리 · 기본 출발지 좌표 조회 */
-AppFiles.reg('js/station.js','v2.0.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/station.js','v3.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // 기본 출발지(금천소방서·시흥119안전센터) 좌표를 도로명 주소로 구한다 (KakaoGeo — 지도 SDK services, REST 키 불필요)
 // 이름 검색은 엉뚱한 곳(이름이 비슷한 다른 시설 등)이 잡힐 수 있어 쓰지 않는다. 주소 검색은 결과가 하나로 정해진다.
