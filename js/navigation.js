@@ -1,5 +1,5 @@
 /* field-check · js/navigation.js — 길찾기 */
-AppFiles.reg('js/navigation.js','v2.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/navigation.js','v2.0.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Navigation ══════════ */
 // select 변경 시 직접 입력창으로 교체

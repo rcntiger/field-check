@@ -1,5 +1,5 @@
 /* field-check · css/home.css — 홈 화면 (계획 카드) */
-:root{--appver-home:"v2.0.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-home:"v2.0.2"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ── 홈 뷰 ── */
 #homeView{min-height:100vh;display:flex;flex-direction:column}

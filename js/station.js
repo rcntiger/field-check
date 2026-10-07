@@ -1,26 +1,38 @@
 /* field-check · js/station.js — 출발지 관리 · 기본 출발지 좌표 조회 */
-AppFiles.reg('js/station.js','v2.0.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/station.js','v2.0.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
-// 기본 출발지(금천소방서·시흥119안전센터) 좌표를 이름으로 검색해 갱신 (KakaoGeo — 지도 SDK services, REST 키 불필요)
-// 직접 추가한 출발지는 등록할 때 주소로 구한 좌표가 더 정확하므로 건드리지 않는다
+// 기본 출발지(금천소방서·시흥119안전센터) 좌표를 도로명 주소로 구한다 (KakaoGeo — 지도 SDK services, REST 키 불필요)
+// 이름 검색은 엉뚱한 곳(이름이 비슷한 다른 시설 등)이 잡힐 수 있어 쓰지 않는다. 주소 검색은 결과가 하나로 정해진다.
+// 주소 검색이 실패하면 DEFAULT_STATIONS에 적힌 좌표를 그대로 쓴다.
+// 직접 추가한 출발지는 등록할 때 주소로 구한 좌표를 쓰므로 건드리지 않는다
 async function fetchStationCoords(){
-  for(const [key,st] of Object.entries(STATIONS)){
-    if(!DEFAULT_STATIONS.some(d=>d.key===key))continue;
+  for(const key of Object.keys(STATIONS)){
+    const def=DEFAULT_STATIONS.find(d=>d.key===key);
+    if(!def)continue;
+    // 예전 버전이 잘못 바꿔 저장해 둔 좌표가 있어도 기본 좌표에서 다시 시작
+    STATIONS[key].lat=def.lat;STATIONS[key].lng=def.lng;
+    if(!def.addr)continue;
     try{
-      const doc=(await KakaoGeo.keywordSearchRaw(st.name,1))[0];
-      if(doc){
-        STATIONS[key].lat=parseFloat(doc.y);
-        STATIONS[key].lng=parseFloat(doc.x);
+      const doc=(await KakaoGeo.addressSearchRaw(def.addr,1)||[])[0];
+      const lat=doc?parseFloat(doc.y):NaN,lng=doc?parseFloat(doc.x):NaN;
+      if(isFinite(lat)&&isFinite(lng)){
+        STATIONS[key].lat=lat;
+        STATIONS[key].lng=lng;
+      }else{
+        console.warn('출발지 주소 검색 결과 없음 — 기본 좌표 사용:',def.name,def.addr);
       }
-    }catch(e){console.warn('좌표 취득 실패:',st.name,e);}
+    }catch(e){console.warn('좌표 취득 실패:',def.name,e);}
   }
+  // 출발지 설정 창이 열려 있으면 새 좌표로 다시 그림
+  if(document.getElementById('stationModal')?.classList.contains('open'))renderStationList();
 }
 
 /* ══════════ Station Settings ══════════ */
 const STATION_KEY='field_check_stations';
 const DEFAULT_STATIONS=[
-  {key:'fs',name:'금천소방서',lat:37.4647,lng:126.9015},
-  {key:'sh',name:'시흥119안전센터',lat:37.4447,lng:126.9089}
+  // addr: 좌표를 구하는 기준 주소 (위치가 바뀌면 여기만 고침) · lat/lng: 주소 검색이 실패했을 때만 쓰는 예비 좌표
+  {key:'fs',name:'금천소방서',addr:'서울 금천구 시흥대로 342',lat:37.4647,lng:126.9015},
+  {key:'sh',name:'시흥119안전센터',addr:'서울 금천구 시흥대로45길 31',lat:37.4447,lng:126.9089}
 ];
 
 function loadStations(){
