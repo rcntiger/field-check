@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.1.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.1.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -33,19 +33,6 @@ function cardMetaHtml(p){
     <div class="pc-prog"><div class="pc-bar"><i style="width:${pct}%"></i></div><div class="pc-num">${num}</div></div>
     <div class="pc-info"><span>${new Date(p.created_at).toLocaleDateString('ko-KR')} 만듦</span>${expireBadgeHtml(p.expire_at)}</div>`;
 }
-// 홈 화면 띠의 한 줄 요약 (계획 수 · 전체 대상 · 완료)
-function renderHomeSummary(list,loaded){
-  const el=document.getElementById('homeSummary');
-  if(!el)return;
-  if(!list.length){el.textContent='';return;}
-  if(!loaded){el.innerHTML=`계획 <b>${list.length}</b>개`;return;}
-  const total=list.reduce((n,p)=>n+(p._total||0),0);
-  const done=list.reduce((n,p)=>n+(p._done||0),0);
-  el.innerHTML=total
-    ?`계획 <b>${list.length}</b>개, 점검 대상 <b>${total.toLocaleString()}</b>곳 가운데 <b>${done.toLocaleString()}</b>곳 완료`
-    :`계획 <b>${list.length}</b>개, 아직 올린 점검 대상이 없습니다`;
-}
-
 async function loadProjects(){
   try{
     const projs=await SupabaseUtil.select('inspections',{order:{column:'created_at',ascending:false}});
@@ -72,7 +59,6 @@ async function loadProjects(){
           if(meta)meta.innerHTML=cardMetaHtml(p);
         }
       });
-      renderHomeSummary(projs,true);
     }catch(e){console.warn('건수 로드 실패',e);}
   }catch(e){
     showToast('프로젝트 로드 실패: '+e.message,'err');
@@ -87,7 +73,6 @@ function renderProjects(list){
   const empty=document.getElementById('projectEmpty');
   if(empty&&empty.parentNode===grid)grid.removeChild(empty);
   grid.innerHTML='';
-  renderHomeSummary(list,false);
   if(!list.length){
     if(empty){empty.style.display='block';grid.appendChild(empty);}
     return;

@@ -1,5 +1,5 @@
 /* field-check · css/home.css — 홈 화면 (계획 카드) */
-:root{--appver-home:"v3.1.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-home:"v3.1.2"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ══ 홈 화면 ══
    소화전 점검 지도와 한눈에 구분되도록 이 앱만의 모습으로 꾸밈:
@@ -26,15 +26,12 @@
     linear-gradient(180deg,var(--h-band),var(--h-band-deep));
   border-bottom:3px solid var(--h-ac);
 }
-.home-band-in{max-width:760px;margin:0 auto;padding:26px 20px 22px;display:grid;grid-template-columns:auto 1fr auto;column-gap:14px;row-gap:16px;align-items:center}
+.home-band-in{max-width:760px;margin:0 auto;padding:26px 20px 22px;display:grid;grid-template-columns:auto 1fr auto;column-gap:14px;align-items:center}
 .home-mark{width:46px;height:46px;flex-shrink:0;display:block}
 .home-title{font-size:23px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
-.home-subtitle{font-size:12.5px;color:var(--h-ink2);margin-top:4px}
 .home-new{padding:10px 16px;border:none;border-radius:999px;background:var(--h-ink);color:#0a403c;font-family:inherit;font-size:13.5px;font-weight:800;cursor:pointer;white-space:nowrap}
 .home-new:hover{background:#fff}
 .home-new:focus-visible,.project-card:focus-visible,.project-card-btn:focus-visible{outline:2px solid var(--h-ac);outline-offset:2px}
-.home-summary{grid-column:1/-1;font-size:13.5px;color:var(--h-ink);line-height:1.5;min-height:20px}
-.home-summary b{font-weight:800;font-variant-numeric:tabular-nums}
 
 /* ── 계획 목록 ── */
 .home-content{flex:1;padding:18px 20px 20px;max-width:760px;margin:0 auto;width:100%}

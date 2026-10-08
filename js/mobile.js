@@ -1,5 +1,5 @@
 /* field-check · js/mobile.js — 모바일 지도/목록 전환 */
-AppFiles.reg('js/mobile.js','v3.1.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/mobile.js','v3.1.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 모바일 ━━
 function toggleMobView(){
