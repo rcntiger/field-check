@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.1.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.1.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -71,12 +71,20 @@ async function proceedReset(){
 }
 
 // ━━ 공통 확인 핸들러 (업로드/재설정 분기) ━━
+// 공통 ExcelUtil은 열 선택을 col._id(예: 'col_0_name') 이름으로 넘긴다 → 앱의 id('name')로 바꿔 찾는다
+function _colIdx(mapping,id){
+  if(mapping[id]!=null) return mapping[id];                       // 예전 방식(id 그대로)도 그대로 받음
+  const col=(mapping._dynCols||[]).find(c=>c.id===id);
+  const v=col?mapping[col._id]:null;
+  return v!=null?v:null;
+}
 async function _onExcelConfirm(rows,mapping){
+  const ci={name:_colIdx(mapping,'name'),addr:_colIdx(mapping,'addr'),group:_colIdx(mapping,'group'),extra:_colIdx(mapping,'extra')};
   const parsed=rows.map(r=>({
-    name:String(mapping.name!=null?r[mapping.name]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    address:String(mapping.addr!=null?r[mapping.addr]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    group_name:mapping.group!=null?String(r[mapping.group]||'').trim():null,
-    extra:mapping.extra!=null?{정보:String(r[mapping.extra]||'').trim()}:null,
+    name:String(ci.name!=null?r[ci.name]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+    address:String(ci.addr!=null?r[ci.addr]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+    group_name:ci.group!=null?String(r[ci.group]||'').trim():null,
+    extra:ci.extra!=null?{정보:String(r[ci.extra]||'').trim()}:null,
   })).filter(d=>d.name);
 
   if(!parsed.length){showToast('가져올 행이 없습니다','err');return;}
