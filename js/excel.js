@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.5.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.5.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -183,7 +183,7 @@ async function _runReset(parsed){
 async function exportExcel(){
   const stamp=new Date().toISOString().slice(0,10).replace(/-/g,'');
   const allRows=items.map(d=>({
-    '이름':d.name,'주소':d.address||'','그룹':d.group_name||'','구분':itemKind(d),
+    '이름':d.name,'주소':d.address||'','그룹':d.group_name||'','구분':itemKind(d)?kindLabel(itemKind(d)):'',
     '점검완료':doneMap[d.id]?'○':'',
     '점검일자':doneMap[d.id]?.done_at?new Date(doneMap[d.id].done_at).toLocaleDateString('ko-KR'):'',
     '점검결과':memoMap[d.id]||'',
