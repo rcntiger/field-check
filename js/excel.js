@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.1.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.1.4'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -16,7 +16,7 @@ function getExcelReader(){
       {id:'group',label:'그룹/팀',keywords:['팀','구역','그룹','형식','형태','group','team']},
       {id:'extra',label:'추가정보',keywords:['비고','추가','기타','결과','검수','extra']},
     ],
-    defaultHeaderRow:1,
+    defaultHeaderRow:0, // 공통 ExcelUtil은 0부터 센다 (0 = 1행)
     confirmLabel:'확인',
     onConfirm:(headers,rows,mapping)=>_onExcelConfirm(rows,mapping),
   });
