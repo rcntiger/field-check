@@ -1,5 +1,5 @@
 /* field-check · js/project-open.js — 계획 열기/닫기 · 계획 데이터 불러오기 */
-AppFiles.reg('js/project-open.js','v3.1.5'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project-open.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 프로젝트 열기 ━━
 async function openProject(proj){
@@ -57,14 +57,12 @@ async function loadProjectData(){
       SupabaseUtil.select('inspection_photos',{eq:{inspection_id:id},order:{column:'created_at',ascending:true}}),
     ]);
     items=itemsRes;
-    // 그룹 색상 맵 초기화 (순서 보장을 위해 items 순서대로 등록)
-    Object.keys(_groupColorMap).forEach(k=>delete _groupColorMap[k]);
-    items.forEach(d=>{if(d.group_name)groupColor(d);});
     doneMap={};doneArr.forEach(d=>{doneMap[d.item_id]=d;});
     memoMap={};memoArr.forEach(m=>{memoMap[m.item_id]=m.memo||'';});
     photoMap={};photosArr.forEach(p=>{if(!photoMap[p.item_id])photoMap[p.item_id]=[];photoMap[p.item_id].push(p);});
     // 그룹 목록
     groups=[...new Set(items.map(d=>d.group_name||'').filter(Boolean))];
+    refreshGroupColors(); // 팀 색 (저장된 색 + 자동)
     buildGroupFilter();
     renderAllMarkers();
     renderList();

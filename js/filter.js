@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.1.5'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -7,8 +7,13 @@ function buildGroupFilter(){
   const row=document.getElementById('groupFilter');
   if(!groups.length){panel.style.display='none';return;}
   panel.style.display='block';
-  row.innerHTML=`<span class="fbtn active" id="gf-all" onclick="toggleGroup('all')">전체</span>`
-    +groups.map((g,i)=>`<span class="fbtn ${GROUP_CLS[i%6]}" id="gf-${i}" onclick="toggleGroup('${g}')">${g} <span class="dcnt" id="gc-${i}"></span></span>`).join('');
+  // 다시 그려도 지금 고른 필터는 그대로 유지
+  const isAll=filterGroup.has('all');
+  row.innerHTML=`<span class="fbtn${isAll?' active':''}" id="gf-all" onclick="toggleGroup('all')">전체</span>`
+    +groups.map((g,i)=>{
+      const c=groupColorOf(g);
+      return `<span class="fbtn team${!isAll&&filterGroup.has(g)?' active':''}" id="gf-${i}" style="--gc:${c};--gct:${teamTextColor(c)}" onclick="toggleGroup(groups[${i}])"><i class="gdot"></i>${esc(g)} <span class="dcnt" id="gc-${i}"></span></span>`;
+    }).join('');
   updateGroupCounts();
 }
 function toggleGroup(g){

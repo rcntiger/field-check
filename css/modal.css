@@ -1,5 +1,5 @@
 /* field-check · css/modal.css — 모달 · 폼 */
-:root{--appver-modal:"v3.1.5"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-modal:"v3.2.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ═══ Modal ═══ */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;align-items:center;justify-content:center;padding:16px}
@@ -17,3 +17,23 @@
 .form-row .pw-show span{cursor:pointer;user-select:none}
 .pw-hint{font-size:11px;color:var(--mt);margin-top:5px;line-height:1.5}
 .del-name{font-size:14px;font-weight:700;color:var(--tx);margin-bottom:6px;word-break:break-all}
+
+/* ═══ 팀 색 지정 ═══ */
+.tc-hint{font-size:12px;color:var(--mt);line-height:1.55;margin:-6px 0 14px}
+.tc-list{display:flex;flex-direction:column;gap:10px}
+.tc-row{border:1px solid var(--bd2);border-radius:var(--r);padding:10px 12px;background:var(--sur2)}
+.tc-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.tc-cur{width:22px;height:22px;border-radius:50%;flex-shrink:0;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+.tc-name{font-size:13.5px;font-weight:700;flex:1;min-width:0;word-break:break-all}
+.tc-cnt{font-size:11px;color:var(--mt);white-space:nowrap}
+.tc-sw{display:flex;flex-wrap:wrap;gap:7px}
+.tc-sw button{width:28px;height:28px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;position:relative}
+.tc-sw button.on{border-color:#fff;box-shadow:0 0 0 2px var(--ac)}
+.tc-sw button.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.tc-sw label.tc-custom{width:28px;height:28px;border-radius:50%;border:1px dashed var(--mt);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--mt);cursor:pointer;position:relative;overflow:hidden}
+.tc-sw label.tc-custom.on{border:2px solid #fff;box-shadow:0 0 0 2px var(--ac);color:#fff}
+.tc-sw label.tc-custom input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none}
+.tc-warn{font-size:11.5px;color:#f0a23b;margin-top:8px;line-height:1.5}
+.tc-warn:empty{display:none}
+.tc-foot{display:flex;gap:8px;align-items:center;margin-top:16px}
+.tc-foot .grow{flex:1}

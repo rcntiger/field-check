@@ -1,28 +1,14 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.1.5'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
-let _excelReaderHdr=null;     // 지금 리더가 쓰는 기본 머리글 행 (0 = 1행)
 let _excelMode='upload';     // 'upload' | 'reset'
 let _excelOrigFile=null;     // 업로드 모드에서 Storage에 원본 저장할 File
 let _resetOpts={delDone:false,delMemo:false,delPhotos:false};
 
-// 머리글 행 추측: 맨 위에 제목·빈 줄(값이 한 칸 이하)이 있으면 그 아래 첫 표 줄을 머리글로
-// 예) 크로스 체크 지도용 파일은 1행 제목, 2행 머리글 → 2행 / 보통 엑셀은 1행 머리글 → 1행
-async function _guessHeaderRow(file){
-  try{
-    await ExcelUtil.loadSheetJS();
-    const wb=XLSX.read(await file.arrayBuffer(),{type:'array',sheetRows:6});
-    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
-    const filled=r=>(r||[]).filter(c=>String(c).trim()).length;
-    const i=aoa.findIndex(r=>filled(r)>=2);
-    return i>=0&&i<=4?i:0;          // 업로드 창의 헤더 행 선택은 1~5행
-  }catch{return 0;}
-}
-function getExcelReader(hdr=0){
-  if(excelReader&&_excelReaderHdr===hdr)return excelReader;
-  _excelReaderHdr=hdr;
+function getExcelReader(){
+  if(excelReader)return excelReader;
   excelReader=ExcelUtil.createReader({
     columns:[
       {id:'name',label:'이름',required:true,keywords:['이름','명칭','건물','시설','대상','name','번호','용수']},
@@ -30,7 +16,7 @@ function getExcelReader(hdr=0){
       {id:'group',label:'그룹/팀',keywords:['팀','구역','그룹','형식','형태','group','team']},
       {id:'extra',label:'추가정보',keywords:['비고','추가','기타','결과','검수','extra']},
     ],
-    defaultHeaderRow:hdr, // 공통 ExcelUtil은 0부터 센다 (0 = 1행)
+    defaultHeaderRow:1,
     confirmLabel:'확인',
     onConfirm:(headers,rows,mapping)=>_onExcelConfirm(rows,mapping),
   });
@@ -47,7 +33,7 @@ function showUploadModal(){
     const file=input.files[0];if(!file)return;
     _excelMode='upload';
     _excelOrigFile=file;
-    await getExcelReader(await _guessHeaderRow(file)).open(file);
+    await getExcelReader().open(file);
   };
   input.click();
 }
@@ -78,27 +64,19 @@ async function proceedReset(){
     const file=new File([blob],orig.name,{type:blob.type||'application/octet-stream'});
     _excelMode='reset';
     _excelOrigFile=null; // 재설정 시 원본은 다시 저장하지 않음 (이미 Storage에 있음)
-    await getExcelReader(await _guessHeaderRow(file)).open(file);
+    await getExcelReader().open(file);
   }catch(e){
     showToast('원본 파일 불러오기 실패: '+e.message,'err');
   }
 }
 
 // ━━ 공통 확인 핸들러 (업로드/재설정 분기) ━━
-// 공통 ExcelUtil은 열 선택을 col._id(예: 'col_0_name') 이름으로 넘긴다 → 앱의 id('name')로 바꿔 찾는다
-function _colIdx(mapping,id){
-  if(mapping[id]!=null) return mapping[id];                       // 예전 방식(id 그대로)도 그대로 받음
-  const col=(mapping._dynCols||[]).find(c=>c.id===id);
-  const v=col?mapping[col._id]:null;
-  return v!=null?v:null;
-}
 async function _onExcelConfirm(rows,mapping){
-  const ci={name:_colIdx(mapping,'name'),addr:_colIdx(mapping,'addr'),group:_colIdx(mapping,'group'),extra:_colIdx(mapping,'extra')};
   const parsed=rows.map(r=>({
-    name:String(ci.name!=null?r[ci.name]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    address:String(ci.addr!=null?r[ci.addr]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    group_name:ci.group!=null?String(r[ci.group]||'').trim():null,
-    extra:ci.extra!=null?{정보:String(r[ci.extra]||'').trim()}:null,
+    name:String(mapping.name!=null?r[mapping.name]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+    address:String(mapping.addr!=null?r[mapping.addr]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
+    group_name:mapping.group!=null?String(r[mapping.group]||'').trim():null,
+    extra:mapping.extra!=null?{정보:String(r[mapping.extra]||'').trim()}:null,
   })).filter(d=>d.name);
 
   if(!parsed.length){showToast('가져올 행이 없습니다','err');return;}

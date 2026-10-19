@@ -1,17 +1,33 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.1.5'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
-const _groupColorMap={};
-function groupColor(d){
-  if(!d.group_name)return GROUP_COLORS[0];
-  if(!_groupColorMap[d.group_name]){
-    const keys=Object.keys(_groupColorMap);
-    _groupColorMap[d.group_name]=GROUP_COLORS[keys.length%GROUP_COLORS.length];
-  }
-  return _groupColorMap[d.group_name];
+// ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
+// ① 계획에 저장된 색(inspections.group_colors, 팀 이름 → '#rrggbb')
+// ② 없으면 TEAM_PALETTE에서 자동: 저장된 팀들이 쓰지 않는 색부터 팀 순서대로
+let _autoTeamColors={};
+function isHexColor(c){return typeof c==='string'&&/^#[0-9a-f]{6}$/i.test(c);}
+function savedGroupColors(){
+  const m=currentProject&&currentProject.group_colors;
+  return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};
 }
-function groupCls(d){return 'g'+(Object.keys(_groupColorMap).indexOf(d.group_name||'')+1);}
+// 팀 목록(groups)이나 저장된 색이 바뀌면 다시 계산
+function refreshGroupColors(){
+  const saved=savedGroupColors();
+  const used=new Set(groups.map(g=>saved[g]).filter(isHexColor).map(c=>c.toLowerCase()));
+  const free=TEAM_PALETTE.filter(c=>!used.has(c.toLowerCase()));
+  const pool=free.length?free:TEAM_PALETTE;
+  let k=0;
+  _autoTeamColors={};
+  groups.forEach(g=>{if(!isHexColor(saved[g]))_autoTeamColors[g]=pool[k++%pool.length];});
+}
+function groupColorOf(name){
+  if(!name)return NO_GROUP_COLOR;
+  const c=savedGroupColors()[name];
+  if(isHexColor(c))return c;
+  return _autoTeamColors[name]||TEAM_PALETTE[0];
+}
+function groupColor(d){return groupColorOf(d&&d.group_name||'');}
 
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
@@ -33,7 +49,8 @@ function addMarker(idx,d){
   const isDone=!!doneMap[d.id];
   const color=groupColor(d);
   const el=document.createElement('div');
-  el.className=`kk-marker ${groupCls(d)}${isDone?' done':''}`;
+  el.className=`kk-marker${isDone?' done':''}`;
+  el.style.background=color; // 완료면 css의 .done(초록)이 우선
   el.id='mk-'+idx;
   el.style.position='relative';
 

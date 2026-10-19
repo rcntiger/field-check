@@ -19,7 +19,7 @@
 | 구분 | 사용 |
 |---|---|
 | 지도 | Kakao Maps JS SDK (services, clusterer) — **REST 키는 쓰지 않음** |
-| 백엔드 | Supabase (`inspections`, `inspection_items`, `inspection_done`, `inspection_memo`, `inspection_photos`, `inspection_secrets`, `inspection_admin` / Storage `inspection-photos`, `inspection-files`) |
+| 백엔드 | Supabase (`inspections`, `inspection_items`, `inspection_done`, `inspection_memo`, `inspection_photos`, `inspection_secrets`, `inspection_admin` / 계획마다 팀 색은 `inspections.group_colors` / Storage `inspection-photos`, `inspection-files`) |
 | 공통 모듈 | `https://rcntiger.github.io/common/` — logger.js, utils.js, supabase.js, excel.js, keys.js(`APP_KEYS`), kakao-geo.js(`KakaoGeo`) |
 
 - 키·주소는 이 저장소에 두지 않고 `common/keys.js`에서 읽습니다 (`APP_KEYS.SUPABASE.inspec`, `APP_KEYS.KAKAO_JS_KEY`).
@@ -47,10 +47,11 @@ field-check/
 │   ├── project-open.js  계획 열기/닫기 · 계획 데이터 불러오기
 │   ├── filter.js        그룹 필터 · 정렬 · 필터 적용 · 통계
 │   ├── map-core.js      카카오 지도 초기화 · 진단 · 항목 활성화/전체 보기
-│   ├── marker.js        그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기
+│   ├── marker.js        팀 색 계산(groupColorOf) · 마커 · 이름표 · 정보카드(팝업) 그리기
 │   ├── record.js        완료 토글 · 점검일 · 메모
 │   ├── photo.js         사진: 썸네일 · 압축 · 업로드 · 뷰어 · 바텀시트
 │   ├── list.js          목록 그리기
+│   ├── team-color.js    팀 색 지정 창 (계획마다 group_colors에 저장)
 │   ├── excel.js         엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용)
 │   ├── geocode.js       주소 → 좌표 (KakaoGeo)
 │   ├── search.js        지도 검색
@@ -64,7 +65,8 @@ field-check/
 ├── tools/bump-version.py     버전 한 번에 바꾸기 · 배포 전 확인
 ├── sql/
 │   ├── v3.0.0_delete_password.sql   삭제 비밀번호용 표·함수·권한 (한 번 실행)
-│   └── set_admin_password.sql       관리자 비밀번호 정하기/바꾸기 (SQL Editor에서만 값을 고쳐 실행)
+│   ├── set_admin_password.sql       관리자 비밀번호 정하기/바꾸기 (SQL Editor에서만 값을 고쳐 실행)
+│   └── v3.2.0_team_colors.sql       팀 색 저장 칸 추가 (한 번 실행)
 ├── .github/workflows/keep-alive.yml
 ├── CHANGELOG.md
 └── README.md
@@ -72,6 +74,13 @@ field-check/
 
 모든 js 파일은 일반 `<script>`(모듈 아님)라서 함수·변수는 전역에서 서로 보입니다.
 파일을 새로 만들면 `index.html`의 `AppFiles.css` / `AppFiles.js` 목록에 이름을 적습니다 (적은 순서대로 불러옴).
+
+## 팀 색 (v3.2.0~)
+
+- 지도 화면 "👥 그룹" 옆 🎨 색 지정에서 팀마다 색을 정합니다. 계획마다 `inspections.group_colors`(팀 이름 → `#rrggbb`)에 저장되어 모든 사람에게 같은 색으로 보입니다.
+- 정하지 않은 팀은 `js/config.js`의 `TEAM_PALETTE` 순서대로 자동 색을 받습니다 (저장된 팀이 쓰는 색은 건너뜀).
+- 점검을 마친 곳은 팀 색과 상관없이 초록색, 팀이 없는 대상은 회색입니다.
+- 색 계산은 `js/marker.js`의 `groupColorOf` 한 곳에서만 합니다. 마커·이름표·목록·정보카드·필터가 모두 여기서 색을 받습니다.
 
 ## 계획 삭제 비밀번호 (v3.0.0~)
 

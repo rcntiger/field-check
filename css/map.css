@@ -1,5 +1,5 @@
 /* field-check · css/map.css — 지도 화면 배치 · 목록 · 모바일 · 툴바 · 검색 · 거리재기 · 로드뷰 */
-:root{--appver-map:"v3.1.5"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-map:"v3.2.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ── 맵 뷰 ── */
 
@@ -26,8 +26,14 @@
 .filter-row{display:flex;gap:5px;flex-wrap:wrap}
 .fbtn{padding:4px 9px;border-radius:20px;border:1px solid var(--bd2);background:var(--sur2);color:var(--mt);font-size:11px;cursor:pointer;user-select:none;transition:all .12s}
 .fbtn.active{color:#fff;border-color:transparent;background:var(--ac)}
-.fbtn.g1.active{background:#3b5fc4;color:#fff}.fbtn.g2.active{background:#c0392b;color:#fff}.fbtn.g3.active{background:#7c3aed;color:#fff}
-.fbtn.g4.active{background:#b45309;color:#fff}.fbtn.g5.active{background:#059669;color:#fff}.fbtn.g6.active{background:#be185d;color:#fff}
+/* 팀 버튼: 색은 js가 --gc(팀 색) · --gct(그 위 글자색)로 넣음 */
+.fbtn.team{display:inline-flex;align-items:center;gap:5px}
+.fbtn .gdot{width:8px;height:8px;border-radius:50%;background:var(--gc);flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.fbtn.team.active{background:var(--gc);color:var(--gct,#fff)}
+.fbtn.team.active .gdot{background:var(--gct,#fff);box-shadow:none}
+.ptitle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.ptitle-row .ptitle{margin:0}
+.ptitle-btn{font-size:10px;padding:2px 8px}
 .dcnt{opacity:.7;font-size:10px;margin-left:1px}
 .search-wrap input{width:100%;padding:7px 9px}
 .list{flex:1;overflow-y:auto;padding:5px}
