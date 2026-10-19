@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.4.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.5.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -99,11 +99,29 @@ function kindIconHtml(k){
   return `<span class="kicon kicon-${s==='square'?'sq':'ci'}"></span>`;
 }
 
+// ━━ 이름표 켜기/끄기 ━━ (선택은 이 브라우저에 기억)
+const LABELS_KEY='fc_labels_on';
+function labelsVisible(){
+  if(labelsOn===null){
+    const v=Utils.lsGet(LABELS_KEY,null);
+    labelsOn=(v===null)?('ontouchstart' in window):!!v;
+  }
+  return labelsOn;
+}
+function updateLabelBtn(){document.getElementById('btnLabel')?.classList.toggle('on',labelsVisible());}
+function toggleLabels(){
+  labelsOn=!labelsVisible();
+  Utils.lsSet(LABELS_KEY,labelsOn);
+  items.forEach((d,i)=>{const o=overlays[i];if(o&&o.labelOverlay)o.labelOverlay.setMap(labelsOn&&!isHidden(d)?kakaoMap:null);});
+  updateLabelBtn();
+  showToast(labelsOn?'이름표 켬':'이름표 끔','');
+}
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
   if(clusterer)clusterer.clear();
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
+  updateLabelBtn();
 }
 let _transparentMarkerImg=null;
 function getTransparentMarkerImage(){
@@ -130,15 +148,15 @@ function addMarker(idx,d){
     if(iwOpen===iw)return;
     const r=el.getBoundingClientRect();
     const _k=itemKind(d);
-    _sharedTooltip.textContent=_k?`${d.name} · ${_k}`:d.name;
+    _sharedTooltip.textContent=_k?`${d.name} · ${kindLabel(_k)}`:d.name;
     _sharedTooltip.style.left=(r.left+r.width/2)+'px';
     _sharedTooltip.style.top=(r.bottom+6)+'px';
     _sharedTooltip.style.opacity='1';
   });
   el.addEventListener('mouseleave',()=>{_sharedTooltip.style.opacity='0';});
-  // 모바일: 이름 말풍선 레이블을 CustomOverlay로 마커 아래 항상 표시
+  // 이름표(이름 말풍선): 마커 아래 CustomOverlay. 툴바 🏷️ 이름표로 켜고 끔 (처음에는 휴대폰 켬, PC 끔)
   let labelOverlay=null;
-  if('ontouchstart' in window){
+  {
     const color=groupColor(d);
     const labelEl=document.createElement('div');
     labelEl.style.cssText=`padding:3px 8px;font-size:11px;font-weight:700;color:${color};background:rgba(255,255,255,0.95);border:1.5px solid ${color};border-radius:12px;white-space:normal;max-width:120px;word-break:keep-all;text-align:center;line-height:1.4;box-shadow:0 2px 6px rgba(0,0,0,.2);pointer-events:auto;cursor:pointer`;
@@ -158,7 +176,7 @@ function addMarker(idx,d){
       xAnchor:0.5,yAnchor:-0.3,
       zIndex:9,
     });
-    labelOverlay.setMap(kakaoMap);
+    if(labelsVisible())labelOverlay.setMap(kakaoMap);
   }
 
   const iwEl=document.createElement('div');

@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.4.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.5.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -80,7 +80,7 @@ function applyFilter(){
     const o=overlays[i];
     if(o){
       o.overlay?.setMap(hide?null:kakaoMap);
-      o.labelOverlay?.setMap(hide?null:kakaoMap);
+      o.labelOverlay?.setMap(hide||!labelsVisible()?null:kakaoMap);
       // 클러스터러 계산용 invisible 마커도 같이 빼줘야 카카오 기본 풍선이 남지 않음
       if(clusterer&&o.clMarker&&o.hidden!==hide){
         if(hide)clusterer.removeMarker(o.clMarker);
