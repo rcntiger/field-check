@@ -1,5 +1,5 @@
 /* field-check · css/marker.css — 마커 · 툴팁 · 정보카드(InfoWindow) · 카드 안 사진 */
-:root{--appver-marker:"v3.3.2"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-marker:"v3.4.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* 마커 */
 
@@ -19,6 +19,9 @@
 .lb-kind{display:inline-block;margin-left:2px;padding:0 4px;border-radius:6px;background:#111827;color:#fff;font-size:9px;font-weight:700;vertical-align:1px}
 .iw-kind{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;vertical-align:2px;background:rgba(100,116,139,.15);color:#475569}
 .iw-kind.multi{background:#111827;color:#fff}
+/* 정보카드 추가정보 자리의 짧은 구분 문구 (조사 대상 / 훈련 대상 / 조사·훈련 대상) */
+.iw-kindline{display:inline-block;margin:2px 0 10px;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(59,130,246,.12);color:#1d4ed8}
+.iw-kindline.multi{background:#111827;color:#fff}
 .kk-marker.active-mk{width:20px!important;height:20px!important;border:3px solid #fff!important;box-shadow:0 0 0 3px rgba(255,255,255,.5),0 3px 10px rgba(0,0,0,.7)!important}
 
 /* 팝업 */

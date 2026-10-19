@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.3.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.4.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -30,7 +30,31 @@ function groupColorOf(name){
 function groupColor(d){return groupColorOf(d&&d.group_name||'');}
 
 // ── 업무 구분 ── (크로스 체크 지도용 파일의 '구분' 열 → 추가정보 extra.구분)
-function itemKind(d){return d&&d.extra&&d.extra['구분']?String(d.extra['구분']).trim():'';}
+function itemKind(d){
+  if(!d||!d.extra)return '';
+  if(d.extra['구분'])return String(d.extra['구분']).trim();
+  return _kindFromNote(d.extra['정보']);
+}
+// 구분 열이 생기기 전(v3.3.0 이전) 올린 크로스 체크 파일: 비고 맨 앞에서 구분을 읽음
+//   '2개 목록(조사, 훈련) · 묶음 03 · …' → '조사·훈련' / '조사 · 조사 12행' → '조사'
+//   다른 엑셀의 비고를 잘못 읽지 않도록, 한 목록이면 이름에 '조사'나 '훈련'이 있을 때만
+const _noteKindCache=new Map();
+function _kindFromNote(note){
+  if(!note)return '';
+  if(_noteKindCache.has(note))return _noteKindCache.get(note);
+  const first=String(note).split(' · ')[0].trim();
+  let k='';
+  const m=first.match(/^\d+개 목록\((.+)\)$/);
+  if(m)k=m[1].split(',').map(s=>s.trim()).filter(Boolean).join('·');
+  else if(first.length<=10&&/조사|훈련/.test(first)&&!/\d/.test(first))k=first;
+  _noteKindCache.set(note,k);
+  return k;
+}
+// 정보카드용 짧은 문구: 조사 → '조사 대상', 훈련 → '훈련 대상', 둘 다 → '조사·훈련 대상'
+//   (이름이 '자료조사'·'소방훈련'이어도 '조사'·'훈련'으로 줄임)
+function kindLabel(k){
+  return String(k).split('·').map(s=>s.trim()).map(s=>/조사/.test(s)?'조사':/훈련/.test(s)?'훈련':s).join('·')+' 대상';
+}
 function kindIsMulti(k){return String(k).includes('·');}          // 여러 목록에 함께 든 대상 (예: 조사·훈련)
 function kindShort(k){return String(k).split('·').map(s=>s.trim().charAt(0)).join('·');} // 조사·훈련 → 조·훈
 // 마커 모양: 조사만 = 삼각형, 훈련만 = 동그라미, 둘 다(여러 목록) = 동그라미 안에 삼각형
@@ -185,9 +209,9 @@ function renderPopup(iwEl,idx,d,iw){
         <span class="iw-close" onclick="closeIw()">✕</span>
       </div>
     </div>
-    <div class="iw-name">${esc(d.name)}${kind?` <span class="iw-kind${kindIsMulti(kind)?' multi':''}">${esc(kind)}</span>`:''}</div>
+    <div class="iw-name">${esc(d.name)}</div>
     ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
-    ${extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
+    ${kind?`<div class="iw-kindline${kindIsMulti(kind)?' multi':''}">${esc(kindLabel(kind))}</div>`:extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
     <div class="iw-divider"></div>
 
     <div id="dateRow-${idx}" style="display:${isDone?'flex':'none'}" class="iw-date-row">

@@ -1,5 +1,5 @@
 /* field-check · css/home.css — 홈 화면 (계획 카드) */
-:root{--appver-home:"v3.3.2"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-home:"v3.4.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ══ 홈 화면 ══
    소화전 점검 지도와 한눈에 구분되도록 이 앱만의 모습으로 꾸밈:
