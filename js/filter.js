@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.3.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -24,12 +24,34 @@ function toggleGroup(g){
   groups.forEach((grp,i)=>document.getElementById(`gf-${i}`)?.classList.toggle('active',!isAll&&filterGroup.has(grp)));
   applyFilter();
 }
+// ━━ 업무 구분 필터 (조사 / 훈련 / 조사·훈련 …) — 그룹 필터와 함께(AND) 적용 ━━
+function buildKindFilter(){
+  const panel=document.getElementById('kindPanel');
+  const row=document.getElementById('kindFilter');
+  if(!panel||!row)return;
+  if(!kinds.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  row.innerHTML=`<span class="fbtn active" id="kf-all" onclick="toggleKind(-1)">전체</span>`
+    +kinds.map((k,i)=>`<span class="fbtn kf-btn${kindIsMulti(k)?' multi':''}" id="kf-${i}" onclick="toggleKind(${i})">${esc(k)} <span class="dcnt" id="kc-${i}"></span></span>`).join('');
+  updateGroupCounts();
+}
+function toggleKind(i){
+  const k=kinds[i];
+  if(i<0||k===undefined)filterKind=new Set(['all']);
+  else{filterKind.delete('all');filterKind.has(k)?filterKind.delete(k):filterKind.add(k);if(!filterKind.size)filterKind=new Set(['all']);}
+  const isAll=filterKind.has('all');
+  document.getElementById('kf-all')?.classList.toggle('active',isAll);
+  kinds.forEach((x,j)=>document.getElementById(`kf-${j}`)?.classList.toggle('active',!isAll&&filterKind.has(x)));
+  applyFilter();
+}
 function updateGroupCounts(){
   const vis=items.filter(d=>!filterText||d.name.toLowerCase().includes(filterText.toLowerCase()));
   groups.forEach((g,i)=>{const el=document.getElementById(`gc-${i}`);if(el)el.textContent=vis.filter(d=>d.group_name===g).length;});
+  kinds.forEach((k,i)=>{const el=document.getElementById(`kc-${i}`);if(el)el.textContent=vis.filter(d=>itemKind(d)===k).length;});
 }
 function isHidden(d){
   if(!filterGroup.has('all')&&!filterGroup.has(d.group_name||''))return true;
+  if(!filterKind.has('all')&&!filterKind.has(itemKind(d)))return true;
   if(filterText&&!d.name.toLowerCase().includes(filterText.toLowerCase())&&!(d.address||'').toLowerCase().includes(filterText.toLowerCase()))return true;
   return false;
 }

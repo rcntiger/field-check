@@ -1,5 +1,5 @@
 /* field-check · js/project-open.js — 계획 열기/닫기 · 계획 데이터 불러오기 */
-AppFiles.reg('js/project-open.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project-open.js','v3.3.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 프로젝트 열기 ━━
 async function openProject(proj){
@@ -7,7 +7,7 @@ async function openProject(proj){
   document.getElementById('homeView').style.display='none';
   document.getElementById('mapView').style.display='flex';
   document.getElementById('mapHeaderTitle').textContent=proj.name;
-  items=[];overlays={};doneMap={};memoMap={};photoMap={};groups=[];filterGroup=new Set(['all']);filterText='';
+  items=[];overlays={};doneMap={};memoMap={};photoMap={};groups=[];filterGroup=new Set(['all']);filterText='';kinds=[];filterKind=new Set(['all']);
   document.getElementById('listEl').innerHTML='<div style="text-align:center;color:var(--mt);font-size:12px;padding:30px">지도 초기화 중...</div>';
   await initKakaoMap();
   await loadProjectData();
@@ -64,6 +64,14 @@ async function loadProjectData(){
     groups=[...new Set(items.map(d=>d.group_name||'').filter(Boolean))];
     refreshGroupColors(); // 팀 색 (저장된 색 + 자동)
     buildGroupFilter();
+    // 업무 구분 목록: 한 가지(조사, 훈련 …)를 먼저, 여러 가지가 겹친 것(조사·훈련)을 뒤에
+    // 한 가지 구분끼리는 '조사·훈련'처럼 겹친 이름에 적힌 순서(= 크로스 체크의 목록 순서)를 따름
+    const _k=[...new Set(items.map(itemKind).filter(Boolean))];
+    const _rank=k=>{let r=99;_k.filter(kindIsMulti).forEach(m=>{const i=m.split('·').map(x=>x.trim()).indexOf(k);if(i>=0&&i<r)r=i;});return r;};
+    const _singles=_k.filter(k=>!kindIsMulti(k)).map((k,i)=>[k,_rank(k),i]).sort((a,b)=>a[1]-b[1]||a[2]-b[2]).map(x=>x[0]);
+    kinds=[..._singles,..._k.filter(kindIsMulti)];
+    filterKind=new Set(['all']);
+    buildKindFilter();
     renderAllMarkers();
     renderList();
     updateStats();

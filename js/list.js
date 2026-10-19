@@ -1,5 +1,5 @@
 /* field-check · js/list.js — 목록 그리기 */
-AppFiles.reg('js/list.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/list.js','v3.3.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 목록 렌더 ━━
 function renderList(){
@@ -19,6 +19,7 @@ function renderList(){
         <div class="isub">${esc((d.address||'').replace('서울특별시 금천구 ',''))}</div>
         <div class="itags">
           ${d.group_name?`<span class="itag">${esc(d.group_name)}</span>`:''}
+          ${itemKind(d)?`<span class="itag kind-tag${kindIsMulti(itemKind(d))?' multi':''}">${esc(itemKind(d))}</span>`:''}
           ${isDone?'<span class="itag done-tag">✓ 완료</span>':''}
           ${memoMap[d.id]?'<span class="itag">📝 메모</span>':''}
           ${(photoMap[d.id]?.length)?`<span class="itag">📷 ${photoMap[d.id].length}</span>`:''}

@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.2.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.3.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -29,6 +29,18 @@ function groupColorOf(name){
 }
 function groupColor(d){return groupColorOf(d&&d.group_name||'');}
 
+// ── 업무 구분 ── (크로스 체크 지도용 파일의 '구분' 열 → 추가정보 extra.구분)
+function itemKind(d){return d&&d.extra&&d.extra['구분']?String(d.extra['구분']).trim():'';}
+function kindIsMulti(k){return String(k).includes('·');}          // 여러 목록에 함께 든 대상 (예: 조사·훈련)
+function kindShort(k){return String(k).split('·').map(s=>s.trim().charAt(0)).join('·');} // 조사·훈련 → 조·훈
+// 마커 모양: 여러 목록 = 두 겹 테두리, 첫째 구분 = 동그라미(기본), 둘째 = 마름모, 셋째부터 = 네모
+function kindShapeCls(d){
+  const k=itemKind(d);if(!k)return '';
+  if(kindIsMulti(k))return ' k-both';
+  const i=kinds.filter(x=>!kindIsMulti(x)).indexOf(k);
+  return i===1?' k-diamond':i>=2?' k-square':'';
+}
+
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
   if(clusterer)clusterer.clear();
@@ -49,7 +61,7 @@ function addMarker(idx,d){
   const isDone=!!doneMap[d.id];
   const color=groupColor(d);
   const el=document.createElement('div');
-  el.className=`kk-marker${isDone?' done':''}`;
+  el.className=`kk-marker${kindShapeCls(d)}${isDone?' done':''}`;
   el.style.background=color; // 완료면 css의 .done(초록)이 우선
   el.id='mk-'+idx;
   el.style.position='relative';
@@ -58,7 +70,8 @@ function addMarker(idx,d){
   el.addEventListener('mouseenter',()=>{
     if(iwOpen===iw)return;
     const r=el.getBoundingClientRect();
-    _sharedTooltip.textContent=d.name;
+    const _k=itemKind(d);
+    _sharedTooltip.textContent=_k?`${d.name} · ${_k}`:d.name;
     _sharedTooltip.style.left=(r.left+r.width/2)+'px';
     _sharedTooltip.style.top=(r.bottom+6)+'px';
     _sharedTooltip.style.opacity='1';
@@ -76,6 +89,10 @@ function addMarker(idx,d){
     labelEl.addEventListener('touchmove',()=>{_lbTouchMoved=true;},{passive:true});
     labelEl.addEventListener('touchend',e=>{if(!_lbTouchMoved){e.preventDefault();openIw();}},{passive:false});
     labelEl.textContent=d.name;
+    if(kindIsMulti(itemKind(d))){   // 여러 목록 대상만 짧게 표시 (말풍선 폭이 좁아서)
+      const kb=document.createElement('span');kb.className='lb-kind';kb.textContent=kindShort(itemKind(d));
+      labelEl.appendChild(document.createTextNode(' '));labelEl.appendChild(kb);
+    }
     labelOverlay=new kakao.maps.CustomOverlay({
       position:new kakao.maps.LatLng(d.lat,d.lng),
       content:labelEl,
@@ -135,7 +152,8 @@ function renderPopup(iwEl,idx,d,iw){
   const color=groupColor(d);
   const memo=memoMap[d.id]||'';
   const photos=photoMap[d.id]||[];
-  const extraStr=d.extra?Object.entries(d.extra).map(([k,v])=>`${k}: ${v}`).join(' · '):'';
+  const kind=itemKind(d);
+  const extraStr=d.extra?Object.entries(d.extra).filter(([k])=>k!=='구분').map(([k,v])=>`${k}: ${v}`).join(' · '):'';
 
   iwEl.innerHTML=`
     <div class="iw-header">
@@ -147,7 +165,7 @@ function renderPopup(iwEl,idx,d,iw){
         <span class="iw-close" onclick="closeIw()">✕</span>
       </div>
     </div>
-    <div class="iw-name">${esc(d.name)}</div>
+    <div class="iw-name">${esc(d.name)}${kind?` <span class="iw-kind${kindIsMulti(kind)?' multi':''}">${esc(kind)}</span>`:''}</div>
     ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
     ${extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
     <div class="iw-divider"></div>

@@ -14,7 +14,7 @@
    · 버전을 올릴 때는 손으로 고치지 말고:  python tools/bump-version.py 2.0.1
      (이 줄과 모든 파일의 버전 표시를 한 번에 바꾼다.  확인만:  python tools/bump-version.py --check)
    ═══════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 'v3.2.0';
+const APP_VERSION = 'v3.3.0';
 
 const AppFiles = {
   // 불러오는 순서 = 아래 적힌 순서. 파일을 추가하면 여기에도 적는다.
@@ -135,6 +135,10 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
           <button class="fbtn ptitle-btn" onclick="showTeamColorModal()" title="팀마다 지도 색 정하기">🎨 색 지정</button>
         </div>
         <div class="filter-row" id="groupFilter"></div>
+      </div>
+      <div class="panel" id="kindPanel" style="display:none">
+        <div class="ptitle">🧭 업무 구분</div>
+        <div class="filter-row" id="kindFilter"></div>
       </div>
       <div class="panel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px">
