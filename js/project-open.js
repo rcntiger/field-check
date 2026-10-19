@@ -1,5 +1,5 @@
 /* field-check · js/project-open.js — 계획 열기/닫기 · 계획 데이터 불러오기 */
-AppFiles.reg('js/project-open.js','v3.3.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project-open.js','v3.3.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 프로젝트 열기 ━━
 async function openProject(proj){
@@ -51,10 +51,11 @@ async function loadProjectData(){
   const id=currentProject.id;
   try{
     const [itemsRes,doneArr,memoArr,photosArr]=await Promise.all([
-      SupabaseUtil.select('inspection_items',{eq:{inspection_id:id},order:{column:'created_at',ascending:true}}),
-      SupabaseUtil.select('inspection_done',{eq:{inspection_id:id}}),
-      SupabaseUtil.select('inspection_memo',{eq:{inspection_id:id}}),
-      SupabaseUtil.select('inspection_photos',{eq:{inspection_id:id},order:{column:'created_at',ascending:true}}),
+      // 1000곳이 넘는 계획도 끝까지 받도록 나눠 받기
+      sbSelectAll('inspection_items',{eq:{inspection_id:id},order:{column:'created_at',ascending:true}}),
+      sbSelectAll('inspection_done',{eq:{inspection_id:id},key:'item_id'}),
+      sbSelectAll('inspection_memo',{eq:{inspection_id:id},key:'item_id'}),
+      sbSelectAll('inspection_photos',{eq:{inspection_id:id},order:{column:'created_at',ascending:true}}),
     ]);
     items=itemsRes;
     doneMap={};doneArr.forEach(d=>{doneMap[d.item_id]=d;});

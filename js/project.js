@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.3.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.3.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -40,18 +40,17 @@ async function loadProjects(){
     // 먼저 목록 표시 (건수 없이)
     projs.forEach(p=>{p._total='-';p._done='-';});
     renderProjects(projs);
-    // 건수 일괄 로드: 전체 items/done을 2번 쿼리로 가져와 JS 집계 (N+1 제거)
+    // 건수: 계획마다 행 수만 셈 (데이터는 받지 않음)
+    // ※ 예전에는 모든 계획의 항목을 한 번에 받아 셌는데, Supabase가 1000행에서 잘라서
+    //   전체 항목이 1000곳을 넘으면 나중에 올린 계획의 건수가 적게 나왔음
     try{
-      const [allItems,allDone]=await Promise.all([
-        SupabaseUtil.select('inspection_items',{columns:'inspection_id'}),
-        SupabaseUtil.select('inspection_done',{columns:'inspection_id'})
-      ]);
-      const totalMap={},doneMap2={};
-      if(Array.isArray(allItems))allItems.forEach(x=>{totalMap[x.inspection_id]=(totalMap[x.inspection_id]||0)+1;});
-      if(Array.isArray(allDone))allDone.forEach(x=>{doneMap2[x.inspection_id]=(doneMap2[x.inspection_id]||0)+1;});
-      projs.forEach(p=>{
-        p._total=totalMap[p.id]||0;
-        p._done=doneMap2[p.id]||0;
+      const counts=await Promise.all(projs.map(p=>Promise.all([
+        sbCount('inspection_items',{inspection_id:p.id}),
+        sbCount('inspection_done',{inspection_id:p.id}),
+      ])));
+      projs.forEach((p,i)=>{
+        p._total=counts[i][0];
+        p._done=counts[i][1];
         const card=document.getElementById('pcard-'+p.id);
         if(card){
           card.dataset.state=cardState(p);
@@ -212,7 +211,7 @@ async function confirmDeleteProject(){
 
     // 1. Storage 사진 삭제 (item_id 폴더별)
     try{
-      const itemIds=(await SupabaseUtil.select('inspection_items',{eq:{inspection_id:id},columns:'id'})).map(i=>i.id);
+      const itemIds=(await sbSelectAll('inspection_items',{eq:{inspection_id:id},columns:'id'})).map(i=>i.id);
       for(const itemId of itemIds){
         const {data:files}=await store.from(PHOTO_BUCKET).list(String(itemId),{limit:100});
         if(Array.isArray(files)&&files.length){
