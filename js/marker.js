@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.3.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.3.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -33,12 +33,31 @@ function groupColor(d){return groupColorOf(d&&d.group_name||'');}
 function itemKind(d){return d&&d.extra&&d.extra['구분']?String(d.extra['구분']).trim():'';}
 function kindIsMulti(k){return String(k).includes('·');}          // 여러 목록에 함께 든 대상 (예: 조사·훈련)
 function kindShort(k){return String(k).split('·').map(s=>s.trim().charAt(0)).join('·');} // 조사·훈련 → 조·훈
-// 마커 모양: 여러 목록 = 두 겹 테두리, 첫째 구분 = 동그라미(기본), 둘째 = 마름모, 셋째부터 = 네모
-function kindShapeCls(d){
-  const k=itemKind(d);if(!k)return '';
-  if(kindIsMulti(k))return ' k-both';
+// 마커 모양: 조사만 = 삼각형, 훈련만 = 동그라미, 둘 다(여러 목록) = 동그라미 안에 삼각형
+//   이름에 '조사'/'훈련'이 없으면 목록 순서로: 첫째 = 삼각형, 둘째 = 동그라미, 셋째부터 = 네모
+//   'tri' | 'circle' | 'both' | 'square' | '' (구분 없음 = 기존 동그라미)
+function kindShape(k){
+  if(!k)return '';
+  if(kindIsMulti(k))return 'both';
+  if(/조사/.test(k))return 'tri';
+  if(/훈련/.test(k))return 'circle';
   const i=kinds.filter(x=>!kindIsMulti(x)).indexOf(k);
-  return i===1?' k-diamond':i>=2?' k-square':'';
+  return i===0?'tri':i===1?'circle':'square';
+}
+function kindShapeCls(d){
+  const s=kindShape(itemKind(d));
+  return s==='tri'?' k-tri':s==='both'?' k-both':s==='square'?' k-square':'';
+}
+// 삼각형·겹침 마커는 SVG로 그림 (색은 css color = 팀 색, 완료면 초록)
+const KIND_SVG={
+  tri:'<svg viewBox="0 0 16 15" width="16" height="15" aria-hidden="true"><polygon points="8,1.2 15,13.8 1,13.8" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>',
+  both:'<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="currentColor" stroke="#fff" stroke-width="2"/><polygon points="10,4.6 15.2,13.9 4.8,13.9" fill="#fff"/></svg>',
+};
+// 필터 칩·범례용 작은 모양 (회색)
+function kindIconHtml(k){
+  const s=kindShape(k);
+  if(s==='tri'||s==='both')return `<span class="kicon" style="color:#94a3b8">${KIND_SVG[s].replace(/width="\d+" height="\d+"/,'width="11" height="11"')}</span>`;
+  return `<span class="kicon kicon-${s==='square'?'sq':'ci'}"></span>`;
 }
 
 function renderAllMarkers(){
@@ -62,6 +81,7 @@ function addMarker(idx,d){
   const color=groupColor(d);
   const el=document.createElement('div');
   el.className=`kk-marker${kindShapeCls(d)}${isDone?' done':''}`;
+  { const s=kindShape(itemKind(d)); if(KIND_SVG[s]){ el.innerHTML=KIND_SVG[s]; el.style.color=color; } }
   el.style.background=color; // 완료면 css의 .done(초록)이 우선
   el.id='mk-'+idx;
   el.style.position='relative';

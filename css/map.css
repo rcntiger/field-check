@@ -1,5 +1,5 @@
 /* field-check · css/map.css — 지도 화면 배치 · 목록 · 모바일 · 툴바 · 검색 · 거리재기 · 로드뷰 */
-:root{--appver-map:"v3.3.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-map:"v3.3.1"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ── 맵 뷰 ── */
 
@@ -52,6 +52,9 @@
 .itag.done-tag{background:rgba(63,185,80,.12);color:var(--lo)}
 .itag.kind-tag.multi{background:rgba(255,255,255,.16);color:var(--tx)}
 .fbtn.kf-btn.multi{font-weight:700}
+.kicon{display:inline-flex;align-items:center;justify-content:center;width:11px;height:11px;margin-right:4px;vertical-align:-1px;line-height:0}
+.kicon-ci{border-radius:50%;background:#94a3b8;width:9px;height:9px}
+.kicon-sq{border-radius:2px;background:#94a3b8;width:9px;height:9px}
 .done-badge{display:none;font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(63,185,80,.12);color:var(--lo);font-weight:600;align-items:center;gap:3px}
 @media(max-width:600px){
   .sidebar{width:100%;height:auto;max-height:calc(100dvh - 44px - 48px - 60px);border-right:none;border-bottom:1px solid var(--bd);overflow-y:auto;flex-shrink:0}
