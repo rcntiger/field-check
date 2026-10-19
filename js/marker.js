@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.4.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.4.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -36,17 +36,32 @@ function itemKind(d){
   return _kindFromNote(d.extra['정보']);
 }
 // 구분 열이 생기기 전(v3.3.0 이전) 올린 크로스 체크 파일: 비고 맨 앞에서 구분을 읽음
-//   '2개 목록(조사, 훈련) · 묶음 03 · …' → '조사·훈련' / '조사 · 조사 12행' → '조사'
-//   다른 엑셀의 비고를 잘못 읽지 않도록, 한 목록이면 이름에 '조사'나 '훈련'이 있을 때만
+//   '2개 목록(조사, 훈련) · 묶음 03 · …' → '조사·훈련'
+//   '조사 · 조사 12행'처럼 한 목록인 대상은, 같은 계획의 '2개 목록(…)'에 나온 목록 이름과 같을 때 그 이름으로
+//   (목록 이름을 계획에서 배우므로 '2026 자료조사'처럼 긴 이름도 인식, 다른 엑셀의 비고는 잘못 읽지 않음)
 const _noteKindCache=new Map();
+let _knownListNames=new Set();
+function _firstNotePart(note){return String(note).split(' · ')[0].trim();}
+function _multiNames(first){const m=first.match(/^\d+개 목록\((.+)\)$/);return m?m[1].split(',').map(s=>s.trim()).filter(Boolean):null;}
+// 계획을 열 때 한 번: 비고에 나온 목록 이름을 모아 둠
+function prepareKindNames(list){
+  _noteKindCache.clear();
+  _knownListNames=new Set();
+  (list||[]).forEach(d=>{
+    if(d&&d.extra&&d.extra['구분'])String(d.extra['구분']).split('·').forEach(s=>s.trim()&&_knownListNames.add(s.trim()));
+    const n=d&&d.extra&&d.extra['정보'];if(!n)return;
+    (_multiNames(_firstNotePart(n))||[]).forEach(s=>_knownListNames.add(s));
+  });
+}
 function _kindFromNote(note){
   if(!note)return '';
   if(_noteKindCache.has(note))return _noteKindCache.get(note);
-  const first=String(note).split(' · ')[0].trim();
+  const first=_firstNotePart(note);
+  const multi=_multiNames(first);
   let k='';
-  const m=first.match(/^\d+개 목록\((.+)\)$/);
-  if(m)k=m[1].split(',').map(s=>s.trim()).filter(Boolean).join('·');
-  else if(first.length<=10&&/조사|훈련/.test(first)&&!/\d/.test(first))k=first;
+  if(multi)k=multi.join('·');
+  else if(_knownListNames.has(first))k=first;
+  else if(first.length<=10&&/조사|훈련/.test(first)&&!/\d/.test(first))k=first;   // 한 목록만 있는 계획
   _noteKindCache.set(note,k);
   return k;
 }
