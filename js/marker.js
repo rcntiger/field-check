@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.5.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.6.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -30,10 +30,15 @@ function groupColorOf(name){
 function groupColor(d){return groupColorOf(d&&d.group_name||'');}
 
 // ── 업무 구분 ── (크로스 체크 지도용 파일의 '구분' 열 → 추가정보 extra.구분)
-function itemKind(d){
-  if(!d||!d.extra)return '';
-  if(d.extra['구분'])return String(d.extra['구분']).trim();
-  return _kindFromNote(d.extra['정보']);
+// 비고가 들어 있을 수 있는 칸: '정보'(v3.5 이전 업로드) · '비고'(정보카드 항목 고르기로 올린 크로스 체크 파일)
+const NOTE_KEYS=['정보','비고'];
+function itemKind(d){return itemKindInfo(d).kind;}
+// { kind, from }: from = 구분을 읽어 온 칸 이름 ('구분' 또는 비고 칸) — 정보카드에서 그 비고 줄을 감출 때 씀
+function itemKindInfo(d){
+  if(!d||!d.extra||typeof d.extra!=='object')return {kind:'',from:''};
+  if(d.extra['구분'])return {kind:String(d.extra['구분']).trim(),from:'구분'};
+  for(const k of NOTE_KEYS){const v=_kindFromNote(d.extra[k]);if(v)return {kind:v,from:k};}
+  return {kind:'',from:''};
 }
 // 구분 열이 생기기 전(v3.3.0 이전) 올린 크로스 체크 파일: 비고 맨 앞에서 구분을 읽음
 //   '2개 목록(조사, 훈련) · 묶음 03 · …' → '조사·훈련'
@@ -49,8 +54,10 @@ function prepareKindNames(list){
   _knownListNames=new Set();
   (list||[]).forEach(d=>{
     if(d&&d.extra&&d.extra['구분'])String(d.extra['구분']).split('·').forEach(s=>s.trim()&&_knownListNames.add(s.trim()));
-    const n=d&&d.extra&&d.extra['정보'];if(!n)return;
-    (_multiNames(_firstNotePart(n))||[]).forEach(s=>_knownListNames.add(s));
+    NOTE_KEYS.forEach(key=>{
+      const n=d&&d.extra&&d.extra[key];if(!n)return;
+      (_multiNames(_firstNotePart(n))||[]).forEach(s=>_knownListNames.add(s));
+    });
   });
 }
 function _kindFromNote(note){
@@ -229,8 +236,12 @@ function renderPopup(iwEl,idx,d,iw){
   const color=groupColor(d);
   const memo=memoMap[d.id]||'';
   const photos=photoMap[d.id]||[];
-  const kind=itemKind(d);
-  const extraStr=d.extra?Object.entries(d.extra).filter(([k])=>k!=='구분').map(([k,v])=>`${k}: ${v}`).join(' · '):'';
+  const {kind,from:kindFrom}=itemKindInfo(d);
+  // 엑셀에서 고른 칸들 — 한 줄에 하나씩 "엑셀 제목  값"
+  //   '구분'은 위 배지로 보여 주므로 빼고, 크로스 체크 비고(목록·묶음·행 번호)에서 구분을 읽었으면 그 긴 비고 줄도 뺌
+  const extraRows=(d.extra&&typeof d.extra==='object')
+    ?Object.entries(d.extra).filter(([k,v])=>k!=='구분'&&!(kindFrom&&k===kindFrom)&&String(v??'').trim()!=='')
+    :[];
 
   iwEl.innerHTML=`
     <div class="iw-header">
@@ -244,7 +255,8 @@ function renderPopup(iwEl,idx,d,iw){
     </div>
     <div class="iw-name">${esc(d.name)}</div>
     ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
-    ${kind?`<div class="iw-kindline${kindIsMulti(kind)?' multi':''}">${esc(kindLabel(kind))}</div>`:extraStr?`<div class="iw-extra">${esc(extraStr)}</div>`:''}
+    ${kind?`<div class="iw-kindline${kindIsMulti(kind)?' multi':''}">${esc(kindLabel(kind))}</div>`:''}
+    ${extraRows.length?`<dl class="iw-extra">${extraRows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`:''}
     <div class="iw-divider"></div>
 
     <div id="dateRow-${idx}" style="display:${isDone?'flex':'none'}" class="iw-date-row">

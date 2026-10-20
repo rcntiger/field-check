@@ -14,7 +14,7 @@
    · 버전을 올릴 때는 손으로 고치지 말고:  python tools/bump-version.py 2.0.1
      (이 줄과 모든 파일의 버전 표시를 한 번에 바꾼다.  확인만:  python tools/bump-version.py --check)
    ═══════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 'v3.5.1';
+const APP_VERSION = 'v3.6.0';
 
 const AppFiles = {
   // 불러오는 순서 = 아래 적힌 순서. 파일을 추가하면 여기에도 적는다.
@@ -326,6 +326,25 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
       <div class="grow"></div>
       <button class="btn btn-ghost" onclick="hideModal('teamColorModal')">취소</button>
       <button class="btn btn-primary" id="tcSaveBtn" onclick="saveTeamColors()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ 모달: 정보카드 항목 고르기 (엑셀 업로드 · 컬럼 재설정 다음 단계) ════ -->
+<div class="modal-bg" id="extraColsModal">
+  <div class="modal" style="max-width:520px">
+    <h3>📋 정보카드에 보여 줄 칸</h3>
+    <div class="xc-hint">고른 칸은 지도에서 대상을 눌렀을 때 정보카드에 엑셀 제목과 함께 한 줄씩 나옵니다. 결과 엑셀에도 들어갑니다.</div>
+    <div class="xc-tools">
+      <span class="xc-count" id="xcCount"></span>
+      <span class="grow"></span>
+      <button class="btn btn-ghost" onclick="setAllExtraCols(true)">모두 고르기</button>
+      <button class="btn btn-ghost" onclick="setAllExtraCols(false)">모두 빼기</button>
+    </div>
+    <div class="xc-list" id="xcList"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost" onclick="cancelExtraCols()">취소</button>
+      <button class="btn btn-primary" id="xcGoBtn" onclick="confirmExtraCols()">올리기</button>
     </div>
   </div>
 </div>

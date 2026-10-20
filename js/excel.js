@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.5.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.6.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -28,12 +28,12 @@ function getExcelReader(hdr=0){
       {id:'name',label:'이름',required:true,keywords:['이름','명칭','건물','시설','대상','name','번호','용수']},
       {id:'addr',label:'주소',required:true,keywords:['주소','도로','지번','위치','addr']},
       {id:'group',label:'그룹/팀',keywords:['팀','구역','그룹','형식','형태','group','team']},
-      {id:'extra',label:'추가정보',keywords:['비고','추가','기타','결과','검수','extra']},
-      {id:'kind',label:'업무 구분',keywords:['구분']},   // 크로스 체크 지도용 파일의 조사/훈련/조사·훈련
     ],
+    // 정보카드에 보여 줄 나머지 칸(비고·구분 등)은 다음 단계(정보카드 항목 고르기 창)에서 여러 개 고름
+    storageKey:'field-check',  // 이 앱만의 컬럼 설정 저장 칸 (다른 앱과 섞이지 않게)
     defaultHeaderRow:hdr, // 공통 ExcelUtil은 0부터 센다 (0 = 1행)
     confirmLabel:'확인',
-    onConfirm:(headers,rows,mapping)=>_onExcelConfirm(rows,mapping),
+    onConfirm:(headers,rows,mapping)=>_onExcelConfirm(headers,rows,mapping),
   });
   return excelReader;
 }
@@ -93,21 +93,86 @@ function _colIdx(mapping,id){
   const v=col?mapping[col._id]:null;
   return v!=null?v:null;
 }
-// 추가정보(extra): 비고 → 정보, 업무 구분 → 구분 (둘 다 없으면 null)
-function _buildExtra(ci,r){
-  const ex={};
-  if(ci.extra!=null)ex['정보']=String(r[ci.extra]||'').trim();
-  if(ci.kind!=null){const k=String(r[ci.kind]||'').trim();if(k)ex['구분']=k;}
-  return Object.keys(ex).length?ex:null;
+let _pendingExcel=null; // 정보카드 항목 고르기 창이 열려 있는 동안의 엑셀 내용
+async function _onExcelConfirm(headers,rows,mapping){
+  const idx={name:_colIdx(mapping,'name'),addr:_colIdx(mapping,'addr'),group:_colIdx(mapping,'group')};
+  if(idx.name==null||idx.addr==null){showToast('이름·주소 컬럼을 지정하세요','err');return;}
+  if(!rows.some(r=>String(r[idx.name]??'').trim())){showToast('가져올 행이 없습니다','err');return;}
+  _pendingExcel={headers,rows,idx};
+  showExtraColsModal();
 }
-async function _onExcelConfirm(rows,mapping){
-  const ci={name:_colIdx(mapping,'name'),addr:_colIdx(mapping,'addr'),group:_colIdx(mapping,'group'),extra:_colIdx(mapping,'extra'),kind:_colIdx(mapping,'kind')};
-  const parsed=rows.map(r=>({
-    name:String(ci.name!=null?r[ci.name]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    address:String(ci.addr!=null?r[ci.addr]:'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' '),
-    group_name:ci.group!=null?String(r[ci.group]||'').trim():null,
-    extra:_buildExtra(ci,r),
-  })).filter(d=>d.name);
+
+// ━━ 정보카드 항목 고르기 ━━
+// 이름·주소·그룹으로 쓴 칸을 뺀 나머지 엑셀 칸 중 정보카드에 보여 줄 칸을 고름 (엑셀 제목이 그대로 앞에 붙음)
+const EXTRA_KEYWORDS=['비고','추가','기타','결과','검수','extra'];
+const KIND_COL='구분';   // 크로스 체크 지도용 파일의 업무 구분 열 (조사/훈련/조사·훈련) — 마커 모양·업무 구분 필터에 쓰여 늘 미리 골라 둠
+function _extraColsKey(){return 'field_check_extra_cols_'+(currentProject?currentProject.id:'');}
+function _headerLabels(headers){
+  // 빈 제목은 'N열', 같은 제목이 또 있으면 뒤에 (2)(3)… 를 붙여 구분
+  const seen={};
+  return headers.map((h,i)=>{
+    let t=String(h??'').trim()||`${i+1}열`;
+    if(seen[t]){seen[t]++;t=`${t} (${seen[t]})`;}else seen[t]=1;
+    return t;
+  });
+}
+function showExtraColsModal(){
+  const {headers,rows,idx}=_pendingExcel;
+  const labels=_headerLabels(headers);
+  const used=new Set([idx.name,idx.addr,idx.group].filter(v=>v!=null));
+  const cand=labels.map((t,i)=>({i,t})).filter(c=>!used.has(c.i));
+  // 미리 고를 칸: ① 이 계획에서 지난번 고른 칸 ② 지금 대상들의 정보카드 항목 이름 ③ 비고·기타 같은 이름
+  let prev=null;
+  try{prev=JSON.parse(localStorage.getItem(_extraColsKey())||'null');}catch(e){}
+  const shown=new Set();
+  items.forEach(d=>{if(d.extra&&typeof d.extra==='object')Object.keys(d.extra).forEach(k=>shown.add(k));});
+  const pick=c=>c.t===KIND_COL?true:Array.isArray(prev)?prev.includes(c.t)
+    :shown.size?shown.has(c.t)
+    :EXTRA_KEYWORDS.some(k=>c.t.toLowerCase().includes(k));
+  // 칸마다 보기 값 (값이 있는 첫 행)
+  const sample=i=>{const r=rows.find(r=>String(r[i]??'').trim());return r?String(r[i]).trim():'';};
+  const el=document.getElementById('xcList');
+  if(!cand.length){
+    el.innerHTML='<div class="xc-empty">이름·주소·그룹 말고 남은 칸이 없습니다. 그대로 진행하세요.</div>';
+  }else{
+    el.innerHTML=cand.map(c=>{
+      const v=sample(c.i);
+      return `<label class="xc-item"><input type="checkbox" value="${c.i}" ${pick(c)?'checked':''} onchange="updateExtraColsCount()">
+        <span class="xc-name">${esc(c.t)}</span><span class="xc-sample">${v?esc(v.length>28?v.slice(0,28)+'…':v):'(빈 칸)'}</span></label>`;
+    }).join('');
+  }
+  document.getElementById('xcGoBtn').textContent=_excelMode==='reset'?'재설정':'올리기';
+  updateExtraColsCount();
+  showModal('extraColsModal');
+}
+function updateExtraColsCount(){
+  const n=document.querySelectorAll('#xcList input:checked').length;
+  document.getElementById('xcCount').textContent=n?`${n}개 고름`:'고른 칸 없음 — 정보카드에는 이름·주소만 나옵니다';
+}
+function setAllExtraCols(on){
+  document.querySelectorAll('#xcList input').forEach(c=>{c.checked=on;});
+  updateExtraColsCount();
+}
+function cancelExtraCols(){_pendingExcel=null;hideModal('extraColsModal');}
+async function confirmExtraCols(){
+  if(!_pendingExcel)return;
+  const {headers,rows,idx}=_pendingExcel;
+  const labels=_headerLabels(headers);
+  const chosen=[...document.querySelectorAll('#xcList input:checked')].map(c=>+c.value);
+  try{localStorage.setItem(_extraColsKey(),JSON.stringify(chosen.map(i=>labels[i])));}catch(e){}
+  _pendingExcel=null;
+  hideModal('extraColsModal');
+  const clean=v=>String(v??'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' ');
+  const parsed=rows.map(r=>{
+    const extra={};
+    chosen.forEach(i=>{const v=String(r[i]??'').trim();if(v)extra[labels[i]]=v;}); // 빈 칸은 넣지 않음
+    return{
+      name:clean(r[idx.name]),
+      address:clean(r[idx.addr]),
+      group_name:idx.group!=null?String(r[idx.group]??'').trim():null,
+      extra:Object.keys(extra).length?extra:null,
+    };
+  }).filter(d=>d.name);
 
   if(!parsed.length){showToast('가져올 행이 없습니다','err');return;}
 
@@ -182,8 +247,15 @@ async function _runReset(parsed){
 /* ══════════ Excel Export ══════════ */
 async function exportExcel(){
   const stamp=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  // 정보카드 항목(엑셀에서 가져온 칸)도 결과 엑셀에 그대로 넣음 — 이름이 겹치면 앞에 '정보-'를 붙임
+  // ('구분'은 아래 고정 열에 짧은 문구로 들어가므로 따로 넣지 않음)
+  const fixed=['이름','주소','그룹','구분','점검완료','점검일자','점검결과','사진수'];
+  const extraKeys=[];
+  items.forEach(d=>{if(d.extra&&typeof d.extra==='object')Object.keys(d.extra).forEach(k=>{if(k!=='구분'&&!extraKeys.includes(k))extraKeys.push(k);});});
+  const extraCol=k=>fixed.includes(k)?'정보-'+k:k;
   const allRows=items.map(d=>({
     '이름':d.name,'주소':d.address||'','그룹':d.group_name||'','구분':itemKind(d)?kindLabel(itemKind(d)):'',
+    ...Object.fromEntries(extraKeys.map(k=>[extraCol(k),(d.extra&&d.extra[k])??''])),
     '점검완료':doneMap[d.id]?'○':'',
     '점검일자':doneMap[d.id]?.done_at?new Date(doneMap[d.id].done_at).toLocaleDateString('ko-KR'):'',
     '점검결과':memoMap[d.id]||'',
