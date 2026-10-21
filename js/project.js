@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.8.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.9.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -87,6 +87,7 @@ function renderProjects(list){
     card.setAttribute('role','button');
     card.innerHTML=`
       <div class="project-card-btns">
+        <button class="project-card-btn" onclick="event.stopPropagation();showCopyModal('${p.id}')" title="같은 대상으로 새 계획 (다음 회차)" aria-label="같은 대상으로 새 계획">🔁</button>
         <button class="project-card-btn" onclick="event.stopPropagation();showEditModal('${p.id}')" title="수정" aria-label="계획 수정">✏️</button>
         <button class="project-card-btn del" onclick="event.stopPropagation();deleteProject('${p.id}','${esc(p.name)}')" title="삭제" aria-label="계획 삭제">✕</button>
       </div>
@@ -99,10 +100,66 @@ function renderProjects(list){
   });
   grid.appendChild(frag);
 }
-function showCreateModal(){
-  document.getElementById('projName').value='';document.getElementById('projDesc').value='';document.getElementById('projExpire').value='';
+let _copyFrom=null; // "같은 대상으로 새 계획"일 때 원래 계획 (보통 새 계획이면 null)
+function _openCreateModal({title,info,name,desc}){
+  document.getElementById('createTitle').textContent=title;
+  const inf=document.getElementById('createInfo');
+  inf.innerHTML=info||'';inf.style.display=info?'':'none';
+  document.getElementById('projName').value=name||'';document.getElementById('projDesc').value=desc||'';document.getElementById('projExpire').value='';
   document.getElementById('projPw').value='';document.getElementById('projPwShow').checked=false;togglePwShow('projPw',false);
+  document.getElementById('createBtn').textContent=_copyFrom?'새 회차 만들기':'만들기';
   showModal('createModal');
+}
+function showCreateModal(){
+  _copyFrom=null;
+  _openCreateModal({title:'📋 새 계획'});
+}
+// ━━ 같은 대상으로 새 계획 (다음 회차) ━━
+// 대상·팀·팀 색·정보카드 칸·원본 엑셀은 복사하고, 완료·메모·사진은 비운 채 시작. 원래 계획은 그대로 남음
+function _nextRoundName(name){
+  const m=String(name).match(/^(.*?)\s*\((\d+)회차\)\s*$/);
+  return m?`${m[1]} (${+m[2]+1}회차)`:`${name} (2회차)`;
+}
+function showCopyModal(id){
+  const p=projectList.find(x=>String(x.id)===String(id));
+  if(!p){showToast('계획 정보를 찾을 수 없습니다','err');return;}
+  const total=typeof p._total==='number'?p._total:null;
+  if(total===0){showToast('복사할 점검 대상이 없습니다','err');return;}
+  _copyFrom=p;
+  _openCreateModal({
+    title:'🔁 같은 대상으로 새 계획',
+    info:`<b>${esc(p.name)}</b>의 점검 대상${total!=null?` <b>${total.toLocaleString()}</b>곳`:''}을 그대로 가져옵니다. 팀 색·정보카드 칸·원본 엑셀도 함께 가져오고, 완료·메모·사진은 비어 있는 상태로 시작합니다. 원래 계획과 그 기록은 그대로 남습니다.`,
+    name:_nextRoundName(p.name),
+    desc:p.description||'',
+  });
+}
+// 새로 만든 계획에 원래 계획의 대상 등을 복사. 실패하면 throw
+async function _copyProjectContents(src,dst){
+  const srcItems=await sbSelectAll('inspection_items',{eq:{inspection_id:src.id},order:{column:'created_at',ascending:true}});
+  if(!srcItems.length)throw new Error('원래 계획에 점검 대상이 없습니다');
+  // 대상 복사 (좌표도 그대로 → 주소 검색을 다시 하지 않음). 500곳씩 한 번에
+  const rows=srcItems.map(r=>{const c={...r};delete c.id;delete c.created_at;c.inspection_id=dst.id;return c;});
+  for(let i=0;i<rows.length;i+=500){
+    showToast(`대상 복사 중... (${Math.min(i+500,rows.length)}/${rows.length})`,'');
+    await SupabaseUtil.insert('inspection_items',rows.slice(i,i+500));
+  }
+  // 팀 색 (v3.2.0 SQL 전이면 칸이 없어 건너뜀)
+  if(src.group_colors&&Object.keys(src.group_colors).length){
+    try{await SupabaseUtil.update('inspections',{group_colors:src.group_colors},{id:dst.id});}catch(e){console.warn('팀 색 복사 실패',e);}
+  }
+  // 원본 엑셀 (컬럼 재설정에 씀)
+  try{
+    const store=sbClient().storage.from('inspection-files');
+    const {data:files}=await store.list(String(src.id),{limit:100});
+    for(const f of (files||[])){
+      if(!f.name||!(f.name.startsWith('original.')||f.name.startsWith('added_')))continue;
+      const {error}=await store.copy(`${src.id}/${f.name}`,`${dst.id}/${f.name}`);
+      if(error)console.warn('엑셀 파일 복사 실패',f.name,error);
+    }
+  }catch(e){console.warn('엑셀 파일 복사 실패',e);}
+  // 정보카드 칸 고르기에서 지난번 고른 칸 (이 브라우저)
+  try{const v=localStorage.getItem('field_check_extra_cols_'+src.id);if(v)localStorage.setItem('field_check_extra_cols_'+dst.id,v);}catch{}
+  return srcItems.length;
 }
 // 비밀번호 칸 보기/가리기
 function togglePwShow(inputId,show){const el=document.getElementById(inputId);if(el)el.type=show?'text':'password';}
@@ -176,6 +233,23 @@ async function createProject(){
     if(error)throw error;
     const proj=Array.isArray(data)?data[0]:data;
     if(!proj||proj.id==null)throw new Error('응답 형식 오류');
+    if(_copyFrom){
+      const src=_copyFrom;
+      const btn=document.getElementById('createBtn');btn.disabled=true;
+      try{
+        const n=await _copyProjectContents(src,proj);
+        proj.group_colors=src.group_colors||{};
+        hideModal('createModal');_copyFrom=null;
+        showToast(`✅ 새 회차를 만들었습니다 (대상 ${n.toLocaleString()}곳)`,'ok');
+        openProject(proj);
+      }catch(e){
+        // 복사가 중간에 실패하면 반쯤 만들어진 새 계획을 지움 (방금 정한 삭제 비밀번호로)
+        try{await sbClient().rpc('inspection_delete',{p_id:String(proj.id),p_password:pw});}catch(e2){console.warn(e2);}
+        showToast('새 회차 만들기 실패: '+(e.message||e)+' — 새 계획은 만들지 않았습니다','err');
+        loadProjects();
+      }finally{btn.disabled=false;}
+      return;
+    }
     hideModal('createModal');
     showToast('프로젝트 생성됨','ok');
     openProject(proj);
