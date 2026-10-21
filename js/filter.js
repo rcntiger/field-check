@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.10.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.11.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -94,6 +94,7 @@ function applyFilter(){
 
 // ━━ 통계 ━━
 function updateStats(){
+  if(typeof _uploading!=='undefined'&&_uploading)return;   // 업로드 중에는 진행바를 업로드 표시로 씀
   const filtered=items.filter(d=>!isHidden(d));
   const tot=filtered.length;
   const done=filtered.filter(d=>doneMap[d.id]).length;

@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.10.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.11.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -205,28 +205,67 @@ async function confirmExtraCols(){
 
   if(!parsed.length){showToast('가져올 행이 없습니다','err');return;}
 
-  if(_excelMode==='reset')await _runReplace(parsed,{carry:_resetOpts.carry,label:'재설정'});
-  else if(_upOpts.mode==='replace')await _runReplace(parsed,{carry:_upOpts.carry,label:'바꾸기',file:_excelOrigFile});
-  else await _runUpload(parsed,{skipDup:_upOpts.skipDup,file:_excelOrigFile});
+  try{
+    if(_excelMode==='reset')await _runReplace(parsed,{carry:_resetOpts.carry,label:'재설정'});
+    else if(_upOpts.mode==='replace')await _runReplace(parsed,{carry:_upOpts.carry,label:'바꾸기',file:_excelOrigFile});
+    else await _runUpload(parsed,{skipDup:_upOpts.skipDup,file:_excelOrigFile});
+  }finally{upProgEnd();}
 }
 
 // ━━ 대상 넣기 도우미 ━━
 // 같은 대상인지: 이름·주소의 띄어쓰기·대소문자를 무시하고 비교
 function _itemKey(d){const n=v=>String(v??'').replace(/\s+/g,'').toLowerCase();return n(d.name)+'|'+n(d.address);}
-// 주소 → 좌표 찾고 한 곳씩 넣음. 넣은 행(새 id 포함)을 돌려줌
+// ━━ 업로드 진행바 ━━ 사이드바의 진행률 막대(점검결과 엑셀 출력 위)를 업로드 중에는 업로드 진행 표시로 씀
+let _uploading=false;
+function upProg(text,done,total){
+  _uploading=true;
+  const pct=total?Math.min(100,Math.round(done/total*100)):0;
+  document.querySelector('.prog-wrap')?.classList.add('uploading');
+  const f=document.getElementById('progFill'),l=document.getElementById('progLabel');
+  if(f)f.style.width=pct+'%';
+  if(l)l.textContent=total?`${text} ${done} / ${total} (${pct}%)`:text;
+}
+function upProgEnd(){
+  _uploading=false;
+  document.querySelector('.prog-wrap')?.classList.remove('uploading');
+  updateStats();   // 다시 점검 진행률로
+}
+// 주소 → 좌표를 찾고 대상을 넣음. 넣은 행(새 id 포함)을 돌려줌
+//   예전: 한 곳씩 [좌표 찾기 → 1행 저장]을 차례로 해서 692곳에 3~7분
+//   지금: 좌표는 5개씩 동시에(같은 주소는 한 번만), 저장은 100행씩 묶어서 → 30초~1분
+const GEO_WORKERS=5,INSERT_CHUNK=100;
 async function _insertItems(parsed,word){
   const pid=currentProject.id,rows=[];let fail=0;
-  for(let i=0;i<parsed.length;i++){
-    const d=parsed[i];
-    showToast(`(${i+1}/${parsed.length}) ${d.name} ${word} 중...`,'');
-    let lat=null,lng=null;
-    try{const geo=await geocodeAddr(d.address);if(geo){lat=geo.lat;lng=geo.lng;}}catch{}
+  // ① 좌표 찾기
+  const addrs=[...new Set(parsed.map(d=>d.address).filter(Boolean))];
+  const geo=new Map();let gi=0,gdone=0;
+  upProg(`${word}: 좌표 찾는 중`,0,addrs.length);
+  const worker=async()=>{
+    while(gi<addrs.length){
+      const a=addrs[gi++];
+      try{geo.set(a,await geocodeAddr(a));}catch{geo.set(a,null);}
+      gdone++;
+      if(gdone%5===0||gdone===addrs.length)upProg(`${word}: 좌표 찾는 중`,gdone,addrs.length);
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(GEO_WORKERS,addrs.length)},worker));
+  // ② 저장 (100행씩, 묶음이 실패하면 그 묶음만 한 행씩 다시)
+  const recs=parsed.map(d=>{const g=geo.get(d.address);return {inspection_id:pid,name:d.name,address:d.address,group_name:d.group_name||null,lat:g?g.lat:null,lng:g?g.lng:null,extra:d.extra||null};});
+  for(let i=0;i<recs.length;i+=INSERT_CHUNK){
+    upProg(`${word}: 저장 중`,i,recs.length);
+    const chunk=recs.slice(i,i+INSERT_CHUNK);
     try{
-      const [row]=await SupabaseUtil.insert('inspection_items',{inspection_id:pid,name:d.name,address:d.address,group_name:d.group_name||null,lat,lng,extra:d.extra||null});
-      if(row&&row.id!=null)rows.push(row);else fail++;
-    }catch{fail++;}
-    if(i%5===0)await sleep(50);
+      const got=await SupabaseUtil.insert('inspection_items',chunk);
+      (got||[]).forEach(r=>{if(r&&r.id!=null)rows.push(r);});
+      fail+=chunk.length-(got||[]).length;
+    }catch(e){
+      console.warn('묶음 저장 실패, 한 행씩 다시',e);
+      for(const r of chunk){
+        try{const [row]=await SupabaseUtil.insert('inspection_items',r);if(row&&row.id!=null)rows.push(row);else fail++;}catch{fail++;}
+      }
+    }
   }
+  upProg(`${word}: 저장 완료`,recs.length,recs.length);
   return {rows,fail};
 }
 // 여러 행을 한꺼번에 지움 (주소 길이 제한 때문에 100개씩)
@@ -301,7 +340,7 @@ async function _runReplace(parsed,{carry,label,file}){
       const strip=(r,drop)=>{const c={...r};drop.forEach(k=>delete c[k]);return c;};
       for(let i=0;i<olds.length;i++){
         const o=olds[i],n=pair[o];
-        showToast(`(${i+1}/${olds.length}) 완료·메모·사진 이어받는 중...`,'');
+        if(i%5===0||i===olds.length-1)upProg(`${label}: 완료·메모·사진 이어받는 중`,i+1,olds.length);
         // 새 대상으로 복사한 뒤 옛 기록을 지움 (사진 파일은 그대로 두고 주소만 이어 씀)
         const d=doneArr.find(r=>String(r.item_id)===String(o));
         if(d){await SupabaseUtil.upsert('inspection_done',{...strip(d,['id']),item_id:n},'item_id');await SupabaseUtil.remove('inspection_done',{item_id:o});}
@@ -316,7 +355,7 @@ async function _runReplace(parsed,{carry,label,file}){
       }
     }
     // ③ 새 대상에 붙지 않은 기록 정리 (사진은 파일까지)
-    showToast('남은 기록 정리 중...','');
+    upProg(`${label}: 남은 기록 정리 중`,0,0);
     const [d2,m2,p2]=await Promise.all([
       sbSelectAll('inspection_done',{eq:{inspection_id:pid},key:'item_id',columns:'item_id'}),
       sbSelectAll('inspection_memo',{eq:{inspection_id:pid},key:'item_id',columns:'item_id'}),
@@ -332,7 +371,7 @@ async function _runReplace(parsed,{carry,label,file}){
     if(dropDone.length)await _deleteIn('inspection_done','item_id',dropDone);
     if(dropMemo.length)await _deleteIn('inspection_memo','item_id',dropMemo);
     // ④ 옛 대상 지우기
-    showToast('기존 대상 지우는 중...','');
+    upProg(`${label}: 기존 대상 지우는 중`,0,0);
     await _deleteIn('inspection_items','id',oldItems.map(o=>o.id).filter(id=>!newIds.has(String(id))));
     if(file)await _saveExcelFile(file,{asOriginal:true,replace:true});
     const lost=new Set([...dropDone,...dropMemo,...dropPhoto.map(p=>p.item_id)].map(String)).size;

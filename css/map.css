@@ -1,5 +1,5 @@
 /* field-check · css/map.css — 지도 화면 배치 · 목록 · 모바일 · 툴바 · 검색 · 거리재기 · 로드뷰 */
-:root{--appver-map:"v3.10.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-map:"v3.11.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ── 맵 뷰 ── */
 
@@ -23,6 +23,10 @@
 .prog-wrap{height:5px;background:var(--sur2);border-radius:3px;overflow:hidden;margin-top:8px}
 .prog-fill{height:100%;background:var(--lo);border-radius:3px;transition:width .4s}
 .prog-label{font-size:10px;color:var(--mt);margin-top:3px;text-align:center}
+/* 업로드 중: 같은 막대를 업로드 진행 표시로 (파란색, 조금 굵게, 글자 강조) */
+.prog-wrap.uploading{height:8px}
+.prog-wrap.uploading .prog-fill{background:var(--ac);transition:width .2s}
+.prog-wrap.uploading+.prog-label{color:var(--ac);font-weight:700;font-size:11px}
 .filter-row{display:flex;gap:5px;flex-wrap:wrap}
 .fbtn{padding:4px 9px;border-radius:20px;border:1px solid var(--bd2);background:var(--sur2);color:var(--mt);font-size:11px;cursor:pointer;user-select:none;transition:all .12s}
 .fbtn.active{color:#fff;border-color:transparent;background:var(--ac)}
