@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.12.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.12.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)

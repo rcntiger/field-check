@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.12.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.12.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -47,7 +47,9 @@ function toggleKind(i){
 function updateGroupCounts(){
   const vis=items.filter(d=>!filterText||d.name.toLowerCase().includes(filterText.toLowerCase()));
   groups.forEach((g,i)=>{const el=document.getElementById(`gc-${i}`);if(el)el.textContent=vis.filter(d=>d.group_name===g).length;});
-  kinds.forEach((k,i)=>{const el=document.getElementById(`kc-${i}`);if(el)el.textContent=vis.filter(d=>itemKind(d)===k).length;});
+  // 업무 구분 건수는 고른 팀 안에서 셈 (팀을 고르지 않았으면 전체)
+  const inTeam=filterGroup.has('all')?vis:vis.filter(d=>filterGroup.has(d.group_name||''));
+  kinds.forEach((k,i)=>{const el=document.getElementById(`kc-${i}`);if(el)el.textContent=inTeam.filter(d=>itemKind(d)===k).length;});
 }
 function isHidden(d){
   if(!filterGroup.has('all')&&!filterGroup.has(d.group_name||''))return true;
