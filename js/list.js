@@ -1,5 +1,5 @@
 /* field-check · js/list.js — 목록 그리기 */
-AppFiles.reg('js/list.js','v3.12.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/list.js','v3.12.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 목록 렌더 ━━
 function renderList(){
@@ -29,7 +29,7 @@ function renderList(){
       setActive(i);
       if(d.lat&&d.lng&&kakaoMap){
         kakaoMap.setLevel(3);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
-        if(overlays[i])overlays[i].open();   // 정보카드 열기 (그리기·활성 표시 포함)
+        if(overlays[i]){if(iwOpen)iwOpen.setMap(null);overlays[i].iw.setMap(kakaoMap);iwOpen=overlays[i].iw;}
       }
       // 모바일: 목록 클릭 시 지도 모드로 자동 전환
       if(window.innerWidth<=600)switchToMapMode();
