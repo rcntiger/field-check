@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.12.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.12.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -126,6 +126,7 @@ function toggleLabels(){
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
   if(clusterer)clusterer.clear();
+  _clustered=new Set();
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
   refreshVisible();
@@ -136,6 +137,15 @@ function renderAllMarkers(){
 // 지도가 멈출 때(idle)마다 지금 화면(+둘레 절반)에 든 마커만 올리고 나머지는 내림.
 // 이름표는 확대 레벨 5 이하(가까이 볼 때)에서만 — 멀리서는 겹쳐서 읽을 수 없고 가장 무거움.
 const LABEL_MAX_LEVEL=5;
+// 클러스터(숫자 동그라미)로 묶인 대상: 묶음 동그라미가 대신 보이므로 개별 마커는 올리지 않음
+//   계획을 열면 전체가 보이게 멀리서 보는데(레벨 6 이상), 이때 692곳 마커를 모두 올리던 것이 업로드·열기 직후 멈춤의 주원인
+let _clustered=new Set();
+function onClustered(clusters){
+  const s=new Set();
+  try{(clusters||[]).forEach(c=>{const ms=c.getMarkers?c.getMarkers():[];if(ms.length>1)ms.forEach(m=>s.add(m));});}catch(e){console.warn('clustered',e);}
+  _clustered=s;
+  refreshVisible();
+}
 function refreshVisible(){
   if(!kakaoMap)return;
   let inView=()=>true;
@@ -149,7 +159,7 @@ function refreshVisible(){
   const showLabel=labelsVisible()&&lvl<=LABEL_MAX_LEVEL;
   items.forEach((d,i)=>{
     const o=overlays[i];if(!o)return;
-    const on=!isHidden(d)&&inView(d);
+    const on=!isHidden(d)&&inView(d)&&!_clustered.has(o.clMarker);
     if(o.onMap!==on){o.overlay.setMap(on?kakaoMap:null);o.onMap=on;}
     const lb=on&&showLabel;
     if(o.labelOverlay&&o.lbOnMap!==lb){o.labelOverlay.setMap(lb?kakaoMap:null);o.lbOnMap=lb;}
