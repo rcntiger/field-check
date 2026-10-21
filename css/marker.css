@@ -1,5 +1,5 @@
 /* field-check · css/marker.css — 마커 · 툴팁 · 정보카드(InfoWindow) · 카드 안 사진 */
-:root{--appver-marker:"v3.9.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-marker:"v3.10.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* 마커 */
 
@@ -52,6 +52,7 @@
 .iw-extra{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:6px 0 10px;padding:7px 9px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;font-size:11.5px;line-height:1.45}
 .iw-extra dt{color:#64748b;font-weight:600;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .iw-extra dd{margin:0;color:#0f172a;font-weight:600;word-break:break-all;white-space:pre-line}
+.iw-extra .iw-tel{color:#1d4ed8;text-decoration:underline;text-underline-offset:2px}
 .iw-divider{height:1px;background:#f1f5f9;margin:8px 0}
 .iw-btn{width:100%;padding:8px;border:none;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s}
 .iw-btn.done-btn{background:#f1f5f9;color:#64748b}.iw-btn.done-btn.is-done{background:#22c55e;color:#fff}

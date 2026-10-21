@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.9.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.10.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -230,6 +230,16 @@ function addMarker(idx,d){
   overlays[idx]={overlay,iw,clMarker,labelOverlay,hidden:false};
 }
 
+// 정보카드 항목 값: 전화·연락처 칸은 누르면 전화 걸기 (번호가 여러 개면 각각)
+function extraValueHtml(k,v){
+  const s=String(v);
+  if(!/전화|연락처|tel|phone/i.test(k)||/팩스|fax/i.test(k))return esc(s);
+  return s.split(/([0-9][0-9\-\s)(.]{6,}[0-9])/).map((p,i)=>{
+    if(i%2===0)return esc(p);
+    const num=p.replace(/[^0-9]/g,'');
+    return num.length>=7?`<a class="iw-tel" href="tel:${num}">${esc(p.trim())}</a>`:esc(p);
+  }).join('');
+}
 function renderPopup(iwEl,idx,d,iw){
   const isDone=!!doneMap[d.id];
   const doneDate=doneMap[d.id]?.done_at?new Date(doneMap[d.id].done_at).toISOString().slice(0,10):'';
@@ -256,7 +266,7 @@ function renderPopup(iwEl,idx,d,iw){
     <div class="iw-name">${esc(d.name)}</div>
     ${d.address?`<div class="iw-addr-row"><span class="iw-addr">📍 ${esc(d.address)}</span><button class="iw-rv-inline" onclick="openRvFromPopup(new kakao.maps.LatLng(${d.lat},${d.lng}))">🔭 로드뷰</button></div>`:''}
     ${kind?`<div class="iw-kindline${kindIsMulti(kind)?' multi':''}">${esc(kindLabel(kind))}</div>`:''}
-    ${extraRows.length?`<dl class="iw-extra">${extraRows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>`:''}
+    ${extraRows.length?`<dl class="iw-extra">${extraRows.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${extraValueHtml(k,v)}</dd>`).join('')}</dl>`:''}
     <div class="iw-divider"></div>
 
     <div id="dateRow-${idx}" style="display:${isDone?'flex':'none'}" class="iw-date-row">

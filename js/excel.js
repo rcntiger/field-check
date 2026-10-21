@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.9.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.10.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -132,7 +132,7 @@ async function _onExcelConfirm(headers,rows,mapping){
 // ━━ 정보카드 항목 고르기 ━━
 // 이름·주소·그룹으로 쓴 칸을 뺀 나머지 엑셀 칸 중 정보카드에 보여 줄 칸을 고름 (엑셀 제목이 그대로 앞에 붙음)
 const EXTRA_KEYWORDS=['비고','추가','기타','결과','검수','extra'];
-const CC_INFO_COLS=['관할센터','등급','용도'];   // 크로스 체크 지도용 파일의 정보 칸 — 처음에는 미리 골라 둠 (지난번 고른 칸이 있으면 그대로)
+const CC_INFO_COLS=['관할센터','등급','용도','전화번호'];   // 크로스 체크 지도용 파일의 정보 칸 — 처음에는 미리 골라 둠 (지난번 고른 칸이 있으면 그대로)
 const KIND_COL='구분';   // 크로스 체크 지도용 파일의 업무 구분 열 (조사/훈련/조사·훈련) — 마커 모양·업무 구분 필터에 쓰여 늘 미리 골라 둠
 function _extraColsKey(){return 'field_check_extra_cols_'+(currentProject?currentProject.id:'');}
 function _headerLabels(headers){
