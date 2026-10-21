@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.11.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.12.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -119,7 +119,7 @@ function updateLabelBtn(){document.getElementById('btnLabel')?.classList.toggle(
 function toggleLabels(){
   labelsOn=!labelsVisible();
   Utils.lsSet(LABELS_KEY,labelsOn);
-  items.forEach((d,i)=>{const o=overlays[i];if(o&&o.labelOverlay)o.labelOverlay.setMap(labelsOn&&!isHidden(d)?kakaoMap:null);});
+  refreshVisible();
   updateLabelBtn();
   showToast(labelsOn?'이름표 켬':'이름표 끔','');
 }
@@ -128,7 +128,32 @@ function renderAllMarkers(){
   if(clusterer)clusterer.clear();
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
+  refreshVisible();
   updateLabelBtn();
+}
+// ━━ 화면에 보이는 곳의 마커만 지도에 올림 ━━
+// 마커·이름표는 CustomOverlay(실제 HTML)라 수백 곳을 한꺼번에 올려 두면 지도를 끌거나 확대할 때마다 모두 다시 그려져 멈춘 듯 느려짐.
+// 지도가 멈출 때(idle)마다 지금 화면(+둘레 절반)에 든 마커만 올리고 나머지는 내림.
+// 이름표는 확대 레벨 5 이하(가까이 볼 때)에서만 — 멀리서는 겹쳐서 읽을 수 없고 가장 무거움.
+const LABEL_MAX_LEVEL=5;
+function refreshVisible(){
+  if(!kakaoMap)return;
+  let inView=()=>true;
+  try{
+    const b=kakaoMap.getBounds(),sw=b.getSouthWest(),ne=b.getNorthEast();
+    const dy=(ne.getLat()-sw.getLat())*0.5,dx=(ne.getLng()-sw.getLng())*0.5;
+    const s=sw.getLat()-dy,n=ne.getLat()+dy,w=sw.getLng()-dx,e=ne.getLng()+dx;
+    inView=d=>d.lat>=s&&d.lat<=n&&d.lng>=w&&d.lng<=e;
+  }catch{}
+  const lvl=kakaoMap.getLevel?kakaoMap.getLevel():1;
+  const showLabel=labelsVisible()&&lvl<=LABEL_MAX_LEVEL;
+  items.forEach((d,i)=>{
+    const o=overlays[i];if(!o)return;
+    const on=!isHidden(d)&&inView(d);
+    if(o.onMap!==on){o.overlay.setMap(on?kakaoMap:null);o.onMap=on;}
+    const lb=on&&showLabel;
+    if(o.labelOverlay&&o.lbOnMap!==lb){o.labelOverlay.setMap(lb?kakaoMap:null);o.lbOnMap=lb;}
+  });
 }
 let _transparentMarkerImg=null;
 function getTransparentMarkerImage(){
@@ -183,7 +208,7 @@ function addMarker(idx,d){
       xAnchor:0.5,yAnchor:-0.3,
       zIndex:9,
     });
-    if(labelsVisible())labelOverlay.setMap(kakaoMap);
+    // 지도에 올리는 것은 refreshVisible()이 함 (화면 안 + 레벨 5 이하)
   }
 
   const iwEl=document.createElement('div');
@@ -203,7 +228,6 @@ function addMarker(idx,d){
   },{passive:false});
 
   const iw=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:iwEl,yAnchor:1.1,zIndex:100});
-  renderPopup(iwEl,idx,d,iw);
 
   function openIw(){
     if(iwOpen)iwOpen.setMap(null);
@@ -211,6 +235,7 @@ function addMarker(idx,d){
     el.classList.add('active-mk');activeMarkerEl=el;
     _sharedTooltip.style.opacity='0';
     clearTimeout(_tipTimer); // 정보카드 열리면 툴팁 타이머 취소
+    renderPopup(iwEl,idx,d,iw);   // 정보카드는 열 때 그림 (692곳을 미리 다 그리지 않음 · 늘 최신 상태)
     iw.setMap(kakaoMap);iwOpen=iw;
     setActive(idx);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
   }
@@ -221,13 +246,13 @@ function addMarker(idx,d){
   el.addEventListener('touchmove',()=>{_touchMoved=true;},{passive:true});
   el.addEventListener('touchend',e=>{if(!_touchMoved){e.preventDefault();openIw();}},{passive:false});
   const overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:el,zIndex:10});
-  overlay.setMap(kakaoMap);
+  // 지도에 올리는 것은 refreshVisible()이 함
   // 클러스터러용 invisible 마커 (줌 레벨 6 이상에서 클러스터로 묶임)
   // ⚠ opacity:0만으로는 클러스터러가 줌인 시 마커를 재표시할 때 카카오 기본 풍선 아이콘이 노출됨
   //    → 완전 투명 1x1 PNG를 마커 이미지로 지정해 원천 차단
   const clMarker=new kakao.maps.Marker({position:new kakao.maps.LatLng(d.lat,d.lng),image:getTransparentMarkerImage()});
   if(clusterer)clusterer.addMarker(clMarker,true);
-  overlays[idx]={overlay,iw,clMarker,labelOverlay,hidden:false};
+  overlays[idx]={overlay,iw,clMarker,labelOverlay,hidden:false,onMap:false,lbOnMap:false,open:openIw};
 }
 
 // 정보카드 항목 값: 전화·연락처 칸은 누르면 전화 걸기 (번호가 여러 개면 각각)

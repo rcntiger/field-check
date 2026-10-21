@@ -1,5 +1,5 @@
 /* field-check · js/project-open.js — 계획 열기/닫기 · 계획 데이터 불러오기 */
-AppFiles.reg('js/project-open.js','v3.11.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project-open.js','v3.12.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 프로젝트 열기 ━━
 async function openProject(proj){
@@ -23,7 +23,7 @@ function handleBack(){
 
 async function goHome(){
   try{
-    if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});}
+    if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});}
     if(iwOpen){iwOpen.setMap(null);iwOpen=null;}
     // 모바일 상태 초기화
     mobMapMode=false;

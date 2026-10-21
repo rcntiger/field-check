@@ -1,5 +1,5 @@
 /* field-check · js/map-core.js — 카카오 지도 초기화 · 진단 · 항목 활성화/전체 보기 */
-AppFiles.reg('js/map-core.js','v3.11.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/map-core.js','v3.12.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Kakao Map ══════════ */
 function initKakaoMap(){
@@ -30,6 +30,7 @@ function initKakaoMap(){
           if(distMode){distPath.push(e.latLng);addDistMarker(e.latLng);updateDistLine();}
         });
         kakao.maps.event.addListener(kakaoMap,'dblclick',()=>{if(distMode)finishDist();});
+        kakao.maps.event.addListener(kakaoMap,'idle',()=>refreshVisible());   // 화면 안의 마커만 올림
         resolve();
       }catch(e){reject(new Error('MAP_CREATE'));}
   })).catch(e=>{showDiag(e.message);});
