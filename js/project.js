@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.7.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.8.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -219,6 +219,12 @@ async function confirmDeleteProject(){
         }
       }
     }catch(e){console.warn('사진 Storage 삭제 실패',e);}
+    // 1-2. 사진 주소로도 지움 (엑셀 바꾸기·재설정으로 이어받은 사진은 옛 대상 폴더에 남아 있음)
+    try{
+      const paths=(await sbSelectAll('inspection_photos',{eq:{inspection_id:id},columns:'id,url'}))
+        .map(p=>String(p.url||'').split(`/${PHOTO_BUCKET}/`)[1]).filter(Boolean).map(decodeURIComponent);
+      for(let i=0;i<paths.length;i+=100)await store.from(PHOTO_BUCKET).remove(paths.slice(i,i+100));
+    }catch(e){console.warn('사진 Storage 삭제 실패(주소)',e);}
 
     // 2. Storage 원본 엑셀 삭제
     try{

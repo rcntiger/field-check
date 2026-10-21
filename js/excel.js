@@ -1,12 +1,13 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.7.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.8.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
 let _excelReaderHdr=null;     // 지금 리더가 쓰는 기본 머리글 행 (0 = 1행)
-let _excelMode='upload';     // 'upload' | 'reset'
+let _excelMode='upload';     // 'upload'(엑셀 업로드) | 'reset'(컬럼 재설정)
 let _excelOrigFile=null;     // 업로드 모드에서 Storage에 원본 저장할 File
-let _resetOpts={delDone:false,delMemo:false,delPhotos:false};
+let _upOpts={mode:'add',skipDup:true,carry:true}; // 업로드 방식: add(기존 대상에 추가) | replace(지우고 바꾸기)
+let _resetOpts={carry:true};                     // 컬럼 재설정: 같은 대상 기록 이어받기
 
 // 머리글 행 추측: 맨 위에 제목·빈 줄(값이 한 칸 이하)이 있으면 그 아래 첫 표 줄을 머리글로
 // 예) 크로스 체크 지도용 파일은 1행 제목, 2행 머리글 → 2행 / 보통 엑셀은 1행 머리글 → 1행
@@ -39,8 +40,31 @@ function getExcelReader(hdr=0){
 }
 
 // ━━ 업로드 ━━
+// 대상이 이미 있으면 먼저 방식을 고름: 기존 대상에 추가 / 기존 대상을 지우고 바꾸기
 function showUploadModal(){
   if(!currentProject){showToast('프로젝트를 먼저 선택하세요','err');return;}
+  if(!items.length){_upOpts={mode:'add',skipDup:true,carry:true};_pickExcelFile();return;}
+  document.getElementById('upCount').textContent=items.length.toLocaleString();
+  document.getElementById('upModeAdd').checked=true;
+  document.getElementById('upSkipDup').checked=true;
+  document.getElementById('upCarry').checked=true;
+  updateUploadModeUI();
+  showModal('uploadModeModal');
+}
+function updateUploadModeUI(){
+  const rep=document.getElementById('upModeReplace').checked;
+  document.getElementById('upSubAdd').style.display=rep?'none':'';
+  document.getElementById('upSubReplace').style.display=rep?'':'none';
+  document.getElementById('upModeReplace').closest('.up-opt').classList.toggle('on',rep);
+  document.getElementById('upModeAdd').closest('.up-opt').classList.toggle('on',!rep);
+}
+function proceedUpload(){
+  const rep=document.getElementById('upModeReplace').checked;
+  _upOpts={mode:rep?'replace':'add',skipDup:document.getElementById('upSkipDup').checked,carry:document.getElementById('upCarry').checked};
+  hideModal('uploadModeModal');
+  _pickExcelFile();   // 버튼을 누른 그 순간이라 파일 고르기 창이 막히지 않음
+}
+function _pickExcelFile(){
   const input=document.createElement('input');
   input.type='file';
   input.accept='.xlsx,.xls,.csv,.ods,.tsv';
@@ -56,33 +80,36 @@ function showUploadModal(){
 // ━━ 컬럼 재설정 ━━
 async function showResetColModal(){
   if(!currentProject){showToast('프로젝트를 먼저 선택하세요','err');return;}
-  document.getElementById('resetDelDone').checked=false;
-  document.getElementById('resetDelMemo').checked=false;
-  document.getElementById('resetDelPhotos').checked=false;
+  document.getElementById('resetCarry').checked=true;
   showModal('resetOptModal');
 }
 async function proceedReset(){
   hideModal('resetOptModal');
-  _resetOpts={
-    delDone:document.getElementById('resetDelDone').checked,
-    delMemo:document.getElementById('resetDelMemo').checked,
-    delPhotos:document.getElementById('resetDelPhotos').checked,
-  };
+  _resetOpts={carry:document.getElementById('resetCarry').checked};
   showToast('원본 파일 확인 중...','');
   try{
     const store=sbClient().storage;
-    const {data:files}=await store.from('inspection-files').list(String(currentProject.id),{limit:10});
-    const orig=Array.isArray(files)?files.find(f=>f.name&&f.name.startsWith('original.')):null;
+    const files=await _projectFiles();
+    const orig=files.find(n=>n.startsWith('original.'));
     if(!orig)throw new Error('원본 파일이 없습니다 (최초 업로드 시 저장되지 않았거나 삭제됨)');
-    const {data:blob,error:dlErr}=await store.from('inspection-files').download(`${currentProject.id}/${orig.name}`);
+    // "기존 대상에 추가"로 올린 엑셀은 원본에 들어 있지 않음 → 재설정하면 그 대상은 빠짐
+    const added=files.filter(n=>n.startsWith('added_')).length;
+    if(added&&!confirm(`"기존 대상에 추가"로 올린 엑셀이 ${added}개 있습니다.\n컬럼 재설정은 처음 올린 원본 엑셀로만 대상을 다시 만들어서, 추가로 올린 대상은 빠집니다.\n\n계속할까요?`))return;
+    const {data:blob,error:dlErr}=await store.from('inspection-files').download(`${currentProject.id}/${orig}`);
     if(dlErr||!blob)throw new Error('다운로드 실패');
-    const file=new File([blob],orig.name,{type:blob.type||'application/octet-stream'});
+    const file=new File([blob],orig,{type:blob.type||'application/octet-stream'});
     _excelMode='reset';
     _excelOrigFile=null; // 재설정 시 원본은 다시 저장하지 않음 (이미 Storage에 있음)
     await getExcelReader(await _guessHeaderRow(file)).open(file);
   }catch(e){
     showToast('원본 파일 불러오기 실패: '+e.message,'err');
   }
+}
+// 이 계획의 저장된 엑셀 파일 이름들 (original.xlsx, added_….xlsx)
+async function _projectFiles(){
+  const {data,error}=await sbClient().storage.from('inspection-files').list(String(currentProject.id),{limit:100});
+  if(error)throw new Error(error.message);
+  return (data||[]).map(f=>f.name).filter(Boolean);
 }
 
 // ━━ 공통 확인 핸들러 (업로드/재설정 분기) ━━
@@ -143,7 +170,7 @@ function showExtraColsModal(){
         <span class="xc-name">${esc(c.t)}</span><span class="xc-sample">${v?esc(v.length>28?v.slice(0,28)+'…':v):'(빈 칸)'}</span></label>`;
     }).join('');
   }
-  document.getElementById('xcGoBtn').textContent=_excelMode==='reset'?'재설정':'올리기';
+  document.getElementById('xcGoBtn').textContent=_excelMode==='reset'?'재설정':_upOpts.mode==='replace'?'바꾸기':'올리기';
   updateExtraColsCount();
   showModal('extraColsModal');
 }
@@ -178,72 +205,142 @@ async function confirmExtraCols(){
 
   if(!parsed.length){showToast('가져올 행이 없습니다','err');return;}
 
-  if(_excelMode==='reset'){
-    await _runReset(parsed);
-  }else{
-    await _runUpload(parsed);
-  }
+  if(_excelMode==='reset')await _runReplace(parsed,{carry:_resetOpts.carry,label:'재설정'});
+  else if(_upOpts.mode==='replace')await _runReplace(parsed,{carry:_upOpts.carry,label:'바꾸기',file:_excelOrigFile});
+  else await _runUpload(parsed,{skipDup:_upOpts.skipDup,file:_excelOrigFile});
 }
 
-async function _runUpload(parsed){
-  // 원본 파일 Storage에 저장
-  if(_excelOrigFile&&currentProject){
-    try{
-      const path=`${currentProject.id}/original.${_excelOrigFile.name.split('.').pop()||'xlsx'}`;
-      await SupabaseUtil.uploadFile('inspection-files',path,_excelOrigFile);
-    }catch(e){console.warn('원본 파일 저장 실패',e);}
-  }
-
-  let ok=0;
+// ━━ 대상 넣기 도우미 ━━
+// 같은 대상인지: 이름·주소의 띄어쓰기·대소문자를 무시하고 비교
+function _itemKey(d){const n=v=>String(v??'').replace(/\s+/g,'').toLowerCase();return n(d.name)+'|'+n(d.address);}
+// 주소 → 좌표 찾고 한 곳씩 넣음. 넣은 행(새 id 포함)을 돌려줌
+async function _insertItems(parsed,word){
+  const pid=currentProject.id,rows=[];let fail=0;
   for(let i=0;i<parsed.length;i++){
     const d=parsed[i];
-    showToast(`(${i+1}/${parsed.length}) ${d.name} 업로드 중...`,'');
+    showToast(`(${i+1}/${parsed.length}) ${d.name} ${word} 중...`,'');
     let lat=null,lng=null;
     try{const geo=await geocodeAddr(d.address);if(geo){lat=geo.lat;lng=geo.lng;}}catch{}
     try{
-      await SupabaseUtil.insert('inspection_items',{inspection_id:currentProject.id,name:d.name,address:d.address,group_name:d.group_name||null,lat,lng,extra:d.extra||null});
-      ok++;
-    }catch{}
+      const [row]=await SupabaseUtil.insert('inspection_items',{inspection_id:pid,name:d.name,address:d.address,group_name:d.group_name||null,lat,lng,extra:d.extra||null});
+      if(row&&row.id!=null)rows.push(row);else fail++;
+    }catch{fail++;}
     if(i%5===0)await sleep(50);
   }
-  showToast(`${ok}/${parsed.length}개 업로드 완료`,'ok');
+  return {rows,fail};
+}
+// 여러 행을 한꺼번에 지움 (주소 길이 제한 때문에 100개씩)
+async function _deleteIn(table,col,vals){
+  for(let i=0;i<vals.length;i+=100){
+    const {error}=await sbClient().from(table).delete().in(col,vals.slice(i,i+100));
+    if(error)throw new Error(`${table} 삭제: ${error.message}`);
+  }
+}
+// 원본 엑셀 저장. replace=true면 예전 파일(원본·추가분)을 지우고 이 파일을 새 원본으로
+async function _saveExcelFile(file,{asOriginal,replace}){
+  if(!file||!currentProject)return;
+  const pid=currentProject.id,ext=(file.name.split('.').pop()||'xlsx').toLowerCase();
+  try{
+    if(replace){
+      const old=(await _projectFiles()).filter(n=>n.startsWith('original.')||n.startsWith('added_'));
+      if(old.length)await sbClient().storage.from('inspection-files').remove(old.map(n=>`${pid}/${n}`));
+    }
+    const name=asOriginal?`original.${ext}`:`added_${Date.now()}.${ext}`;
+    await SupabaseUtil.uploadFile('inspection-files',`${pid}/${name}`,file);
+  }catch(e){console.warn('엑셀 파일 저장 실패',e);}
+}
+
+// ━━ 기존 대상에 추가 ━━
+async function _runUpload(parsed,{skipDup,file}){
+  const had=items.length;
+  let todo=parsed,skipped=0;
+  if(skipDup&&had){
+    const have=new Set(items.map(_itemKey));
+    todo=parsed.filter(d=>!have.has(_itemKey(d)));
+    skipped=parsed.length-todo.length;
+  }
+  if(!todo.length){showToast(`새로 넣을 대상이 없습니다 (${skipped}곳 모두 이미 있음)`,'err');return;}
+  const {rows,fail}=await _insertItems(todo,'추가');
+  // 처음 올리는 파일은 원본으로, 그다음부터는 추가분으로 따로 보관 (원본을 덮어쓰지 않음)
+  let hasOrig=false;
+  try{hasOrig=(await _projectFiles()).some(n=>n.startsWith('original.'));}catch{}
+  await _saveExcelFile(file,{asOriginal:!had||!hasOrig,replace:false});
+  showToast(`✅ ${rows.length}곳 추가`+(skipped?` · 이미 있는 ${skipped}곳 건너뜀`:'')+(fail?` · ${fail}곳 실패`:''),fail?'err':'ok');
   await loadProjectData();
 }
 
-async function _runReset(parsed){
+// ━━ 기존 대상을 지우고 바꾸기 (엑셀 업로드 "바꾸기" · 컬럼 재설정 공통) ━━
+// 순서: ① 새 대상 넣기 → ② 같은 대상의 완료·메모·사진을 새 대상으로 옮기기 → ③ 남은 기록 정리 → ④ 옛 대상 지우기
+// ①이 하나라도 실패하면 넣은 것을 지우고 멈춤 → 옛 대상은 그대로 남음
+async function _runReplace(parsed,{carry,label,file}){
   const pid=currentProject.id;
-  const {delDone,delMemo,delPhotos}=_resetOpts;
   try{
-    if(delPhotos){
-      showToast('사진 삭제 중...','');
-      const photos=Object.values(photoMap).flat();
-      const paths=photos.map(p=>p.url.split(`/${PHOTO_BUCKET}/`)[1]).filter(Boolean);
-      if(paths.length)await sbClient().storage.from(PHOTO_BUCKET).remove(paths);
-      await SupabaseUtil.remove('inspection_photos',{inspection_id:pid});
+    const oldItems=await sbSelectAll('inspection_items',{eq:{inspection_id:pid},columns:'id,name,address'});
+    // ①
+    const {rows:newRows,fail}=await _insertItems(parsed,label);
+    if(fail){
+      try{await _deleteIn('inspection_items','id',newRows.map(r=>r.id));}catch(e){console.warn(e);}
+      showToast(`${fail}곳을 넣지 못해 ${label==='재설정'?'재설정을':'바꾸기를'} 멈췄습니다. 기존 대상은 그대로입니다`,'err');
+      await loadProjectData();return;
     }
-    if(delMemo){showToast('메모 삭제 중...','');await SupabaseUtil.remove('inspection_memo',{inspection_id:pid});}
-    if(delDone){showToast('완료 기록 삭제 중...','');await SupabaseUtil.remove('inspection_done',{inspection_id:pid});}
-
-    showToast('기존 항목 삭제 중...','');
-    await SupabaseUtil.remove('inspection_items',{inspection_id:pid});
-
-    let ok=0;
-    for(let i=0;i<parsed.length;i++){
-      const d=parsed[i];
-      showToast(`(${i+1}/${parsed.length}) ${d.name} 재설정 중...`,'');
-      let lat=null,lng=null;
-      try{const geo=await geocodeAddr(d.address);if(geo){lat=geo.lat;lng=geo.lng;}}catch{}
-      try{
-        await SupabaseUtil.insert('inspection_items',{inspection_id:pid,name:d.name,address:d.address,group_name:d.group_name||null,lat,lng,extra:d.extra||null});
-        ok++;
-      }catch{}
-      if(i%5===0)await sleep(50);
+    const newIds=new Set(newRows.map(r=>String(r.id)));
+    const [doneArr,memoArr,photoArr]=await Promise.all([
+      sbSelectAll('inspection_done',{eq:{inspection_id:pid},key:'item_id'}),
+      sbSelectAll('inspection_memo',{eq:{inspection_id:pid},key:'item_id'}),
+      sbSelectAll('inspection_photos',{eq:{inspection_id:pid}}),
+    ]);
+    // ② 이어받기: 옛 대상 → 이름·주소가 같은 새 대상 (같은 대상이 여러 개면 순서대로 짝지음)
+    let moved=0;
+    if(carry){
+      const queue={};
+      newRows.forEach(r=>{(queue[_itemKey(r)]=queue[_itemKey(r)]||[]).push(r.id);});
+      const pair={};
+      oldItems.forEach(o=>{const q=queue[_itemKey(o)];if(q&&q.length)pair[o.id]=q.shift();});
+      const has=new Set([...doneArr,...memoArr,...photoArr].map(r=>String(r.item_id)));
+      const olds=Object.keys(pair).filter(id=>has.has(String(id)));
+      const strip=(r,drop)=>{const c={...r};drop.forEach(k=>delete c[k]);return c;};
+      for(let i=0;i<olds.length;i++){
+        const o=olds[i],n=pair[o];
+        showToast(`(${i+1}/${olds.length}) 완료·메모·사진 이어받는 중...`,'');
+        // 새 대상으로 복사한 뒤 옛 기록을 지움 (사진 파일은 그대로 두고 주소만 이어 씀)
+        const d=doneArr.find(r=>String(r.item_id)===String(o));
+        if(d){await SupabaseUtil.upsert('inspection_done',{...strip(d,['id']),item_id:n},'item_id');await SupabaseUtil.remove('inspection_done',{item_id:o});}
+        const m=memoArr.find(r=>String(r.item_id)===String(o));
+        if(m){await SupabaseUtil.upsert('inspection_memo',{...strip(m,['id']),item_id:n},'item_id');await SupabaseUtil.remove('inspection_memo',{item_id:o});}
+        const ps=photoArr.filter(r=>String(r.item_id)===String(o));
+        if(ps.length){
+          await SupabaseUtil.insert('inspection_photos',ps.map(p=>({...strip(p,['id']),item_id:n})));
+          await _deleteIn('inspection_photos','id',ps.map(p=>p.id));
+        }
+        moved++;
+      }
     }
-    showToast(`✅ 재설정 완료 (${ok}/${parsed.length}개)`,'ok');
-    await loadProjectData();
+    // ③ 새 대상에 붙지 않은 기록 정리 (사진은 파일까지)
+    showToast('남은 기록 정리 중...','');
+    const [d2,m2,p2]=await Promise.all([
+      sbSelectAll('inspection_done',{eq:{inspection_id:pid},key:'item_id',columns:'item_id'}),
+      sbSelectAll('inspection_memo',{eq:{inspection_id:pid},key:'item_id',columns:'item_id'}),
+      sbSelectAll('inspection_photos',{eq:{inspection_id:pid},columns:'id,item_id,url'}),
+    ]);
+    const stray=r=>!newIds.has(String(r.item_id));
+    const dropDone=d2.filter(stray).map(r=>r.item_id),dropMemo=m2.filter(stray).map(r=>r.item_id),dropPhoto=p2.filter(stray);
+    if(dropPhoto.length){
+      const paths=dropPhoto.map(p=>String(p.url||'').split(`/${PHOTO_BUCKET}/`)[1]).filter(Boolean).map(decodeURIComponent);
+      for(let i=0;i<paths.length;i+=100){try{await sbClient().storage.from(PHOTO_BUCKET).remove(paths.slice(i,i+100));}catch(e){console.warn(e);}}
+      await _deleteIn('inspection_photos','id',dropPhoto.map(p=>p.id));
+    }
+    if(dropDone.length)await _deleteIn('inspection_done','item_id',dropDone);
+    if(dropMemo.length)await _deleteIn('inspection_memo','item_id',dropMemo);
+    // ④ 옛 대상 지우기
+    showToast('기존 대상 지우는 중...','');
+    await _deleteIn('inspection_items','id',oldItems.map(o=>o.id).filter(id=>!newIds.has(String(id))));
+    if(file)await _saveExcelFile(file,{asOriginal:true,replace:true});
+    const lost=new Set([...dropDone,...dropMemo,...dropPhoto.map(p=>p.item_id)].map(String)).size;
+    showToast(`✅ ${label} 완료: 대상 ${newRows.length}곳`+(carry?` · 기록 이어받음 ${moved}곳`:'')+(lost?` · 기록 지움 ${lost}곳`:''),'ok');
   }catch(e){
-    showToast('재설정 실패: '+e.message,'err');
+    showToast(`${label} 중 오류: `+e.message,'err');
   }
+  await loadProjectData();
 }
 
 /* ══════════ Excel Export ══════════ */
