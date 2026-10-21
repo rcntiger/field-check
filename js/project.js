@@ -1,5 +1,5 @@
 /* field-check · js/project.js — 홈 화면: 계획 목록 · 보관 기한 · 계획 생성/수정/삭제 */
-AppFiles.reg('js/project.js','v3.11.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/project.js','v3.11.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Home / Project ══════════ */
 // 만료 배지 HTML 생성 (공통)
@@ -284,8 +284,10 @@ async function confirmDeleteProject(){
     const store=sbClient().storage;
 
     // 1. Storage 사진 삭제 (item_id 폴더별)
+    //    사진이 있는 대상의 폴더만 봄 — 예전에는 대상마다 폴더를 하나씩 열어 봐서
+    //    692곳짜리 계획은 이 단계에서만 몇 분이 걸려 "삭제 중..."에서 멈춘 것처럼 보였음
     try{
-      const itemIds=(await sbSelectAll('inspection_items',{eq:{inspection_id:id},columns:'id'})).map(i=>i.id);
+      const itemIds=[...new Set((await sbSelectAll('inspection_photos',{eq:{inspection_id:id},columns:'id,item_id'})).map(p=>p.item_id).filter(v=>v!=null))];
       for(const itemId of itemIds){
         const {data:files}=await store.from(PHOTO_BUCKET).list(String(itemId),{limit:100});
         if(Array.isArray(files)&&files.length){
