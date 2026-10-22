@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.14.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.14.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -32,6 +32,7 @@ function getExcelReader(hdr=0){
     ],
     // 정보카드에 보여 줄 나머지 칸(비고·구분 등)은 다음 단계(정보카드 항목 고르기 창)에서 여러 개 고름
     storageKey:'field-check',  // 이 앱만의 컬럼 설정 저장 칸 (다른 앱과 섞이지 않게)
+    forwardFill:'merged',  // 병합된 칸만 채움 (공통 기본값 true는 원래 빈 칸까지 위 행 값으로 채웠음 — v3.14.3)
     defaultHeaderRow:hdr, // 공통 ExcelUtil은 0부터 센다 (0 = 1행)
     confirmLabel:'확인',
     onConfirm:(headers,rows,mapping)=>_onExcelConfirm(headers,rows,mapping),
