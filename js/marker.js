@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.14.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.14.2'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -171,24 +171,32 @@ function clearActiveMarker(){
   if(activeMarkerEl!=null&&activeMarkerEl!==false){const i=activeMarkerEl;activeMarkerEl=null;setMarkerIcon(i);}
   activeMarkerEl=null;
 }
-// ━━ 이름표는 가까이 볼 때(레벨 4 이하), 화면 안(+둘레 절반)에 든 것만 ━━
-// 이름표는 HTML(CustomOverlay)이라 692개를 한꺼번에 올리면 2초 넘게 멈춤 (실측). 지도가 멈출 때(idle)마다 다시 고름.
-const LABEL_MAX_LEVEL=4;
+// ━━ 이름표는 가까이 볼 때(레벨 3 이하), 화면 안에 든 것만, 많아야 200개 ━━
+// 이름표는 HTML(CustomOverlay)이라 하나 올릴 때마다 약 2.7ms (실측: 692개 2.2초). 지도가 멈출 때(idle)마다 다시 고름.
+// 화면 안 대상이 200개를 넘으면 지도 가운데에 가까운 200개만 (그 이상은 겹쳐서 읽을 수도 없음)
+const LABEL_MAX_LEVEL=3,LABEL_MAX=200;
 function refreshLabels(){
   if(!kakaoMap)return;
-  let inView=()=>false;
   const want=labelsVisible()&&kakaoMap.getLevel()<=LABEL_MAX_LEVEL;
+  let pick=new Set();
   if(want){
     try{
       const b=kakaoMap.getBounds(),sw=b.getSouthWest(),ne=b.getNorthEast();
-      const dy=(ne.getLat()-sw.getLat())*.5,dx=(ne.getLng()-sw.getLng())*.5;
+      const dy=(ne.getLat()-sw.getLat())*.1,dx=(ne.getLng()-sw.getLng())*.1;
       const s=sw.getLat()-dy,n=ne.getLat()+dy,w=sw.getLng()-dx,e=ne.getLng()+dx;
-      inView=d=>d.lat>=s&&d.lat<=n&&d.lng>=w&&d.lng<=e;
-    }catch{inView=()=>true;}
+      const cy=(s+n)/2,cx=(w+e)/2;
+      let cand=[];
+      items.forEach((d,i)=>{const o=overlays[i];if(o&&o.labelOverlay&&!o.hidden&&d.lat>=s&&d.lat<=n&&d.lng>=w&&d.lng<=e)cand.push(i);});
+      if(cand.length>LABEL_MAX){
+        const dist=i=>{const d=items[i];return (d.lat-cy)**2+((d.lng-cx)*0.8)**2;};
+        cand.sort((a,b)=>dist(a)-dist(b));cand=cand.slice(0,LABEL_MAX);
+      }
+      pick=new Set(cand);
+    }catch{}
   }
   items.forEach((d,i)=>{
     const o=overlays[i];if(!o||!o.labelOverlay)return;
-    const on=want&&!o.hidden&&inView(d);
+    const on=pick.has(i);
     if(o.lbOn!==on){o.labelOverlay.setMap(on?kakaoMap:null);o.lbOn=on;}
   });
 }
