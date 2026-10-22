@@ -1,5 +1,5 @@
 /* field-check · js/filter.js — 그룹 필터 · 정렬 · 필터 적용 · 통계 */
-AppFiles.reg('js/filter.js','v3.14.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/filter.js','v3.14.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 그룹 필터 ━━
 function buildGroupFilter(){
@@ -82,9 +82,9 @@ function applyFilter(){
     const o=overlays[i];
     if(o){
       if(o.hidden!==hide){o.marker?.setMap(hide?null:kakaoMap);o.hidden=hide;}
-      o.labelOverlay?.setMap(hide||!labelsVisible()?null:kakaoMap);
     }
   });
+  refreshLabels();
   updateStats();updateGroupCounts();
 }
 

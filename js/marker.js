@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.14.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.14.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -139,7 +139,7 @@ function updateLabelBtn(){document.getElementById('btnLabel')?.classList.toggle(
 function toggleLabels(){
   labelsOn=!labelsVisible();
   Utils.lsSet(LABELS_KEY,labelsOn);
-  items.forEach((d,i)=>{const o=overlays[i];if(o&&o.labelOverlay)o.labelOverlay.setMap(labelsOn&&!isHidden(d)?kakaoMap:null);});
+  refreshLabels();
   updateLabelBtn();
   showToast(labelsOn?'이름표 켬':'이름표 끔','');
 }
@@ -171,11 +171,33 @@ function clearActiveMarker(){
   if(activeMarkerEl!=null&&activeMarkerEl!==false){const i=activeMarkerEl;activeMarkerEl=null;setMarkerIcon(i);}
   activeMarkerEl=null;
 }
+// ━━ 이름표는 가까이 볼 때(레벨 4 이하), 화면 안(+둘레 절반)에 든 것만 ━━
+// 이름표는 HTML(CustomOverlay)이라 692개를 한꺼번에 올리면 2초 넘게 멈춤 (실측). 지도가 멈출 때(idle)마다 다시 고름.
+const LABEL_MAX_LEVEL=4;
+function refreshLabels(){
+  if(!kakaoMap)return;
+  let inView=()=>false;
+  const want=labelsVisible()&&kakaoMap.getLevel()<=LABEL_MAX_LEVEL;
+  if(want){
+    try{
+      const b=kakaoMap.getBounds(),sw=b.getSouthWest(),ne=b.getNorthEast();
+      const dy=(ne.getLat()-sw.getLat())*.5,dx=(ne.getLng()-sw.getLng())*.5;
+      const s=sw.getLat()-dy,n=ne.getLat()+dy,w=sw.getLng()-dx,e=ne.getLng()+dx;
+      inView=d=>d.lat>=s&&d.lat<=n&&d.lng>=w&&d.lng<=e;
+    }catch{inView=()=>true;}
+  }
+  items.forEach((d,i)=>{
+    const o=overlays[i];if(!o||!o.labelOverlay)return;
+    const on=want&&!o.hidden&&inView(d);
+    if(o.lbOn!==on){o.labelOverlay.setMap(on?kakaoMap:null);o.lbOn=on;}
+  });
+}
 function renderAllMarkers(){
   Object.values(overlays).forEach(o=>{o.marker?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
   activeMarkerEl=null;
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
+  refreshLabels();
   updateLabelBtn();
 }
 let _transparentMarkerImg=null;
@@ -231,7 +253,7 @@ function addMarker(idx,d){
       xAnchor:0.5,yAnchor:-0.3,
       zIndex:9,
     });
-    if(labelsVisible())labelOverlay.setMap(kakaoMap);
+    // 지도에 올리는 것은 refreshLabels()가 함 (가까이 볼 때 · 화면 안만)
   }
 
   const iwEl=document.createElement('div');
@@ -263,7 +285,7 @@ function addMarker(idx,d){
   }
   kakao.maps.event.addListener(marker,'click',openIw);
   marker.setMap(kakaoMap);
-  overlays[idx]={marker,iw,labelOverlay,hidden:false};
+  overlays[idx]={marker,iw,labelOverlay,hidden:false,lbOn:false};
 }
 
 // 정보카드 항목 값: 전화·연락처 칸은 누르면 전화 걸기 (번호가 여러 개면 각각)

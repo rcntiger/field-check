@@ -1,5 +1,5 @@
 /* field-check · js/kind-shape.js — 업무 구분 값마다 마커 모양 고르기 (계획마다 inspections.group_colors.__kind_shapes에 저장) */
-AppFiles.reg('js/kind-shape.js','v3.14.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/kind-shape.js','v3.14.1'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 let _ksDraft={};
 function showKindShapeModal(){
