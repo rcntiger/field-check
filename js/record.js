@@ -1,5 +1,5 @@
 /* field-check · js/record.js — 완료 토글 · 점검일 · 메모 */
-AppFiles.reg('js/record.js','v3.12.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/record.js','v3.13.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // ━━ 완료 토글 ━━
 async function toggleDone(idx){
@@ -35,7 +35,7 @@ async function toggleDone(idx){
     const inp=dateRow.querySelector('input');
     if(inp&&newDone)inp.value=new Date().toISOString().slice(0,10);
   }
-  const mk=document.getElementById(`mk-${idx}`);if(mk)mk.classList.toggle('done',newDone);
+  setMarkerIcon(idx);   // 완료면 초록 마커
   const item=document.getElementById(`item-${idx}`);if(item)item.classList.toggle('done-item',newDone);
   updateStats();
 }

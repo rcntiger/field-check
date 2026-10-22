@@ -1,5 +1,5 @@
 /* field-check · js/team-color.js — 팀 색 지정 창 (계획마다 inspections.group_colors에 저장) */
-AppFiles.reg('js/team-color.js','v3.12.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/team-color.js','v3.13.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 // 속성값용 이스케이프 (팀 이름에 따옴표가 있어도 안전하게)
 function escAttr(t){return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}

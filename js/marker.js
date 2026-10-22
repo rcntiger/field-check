@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.12.3'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.13.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -123,9 +123,41 @@ function toggleLabels(){
   updateLabelBtn();
   showToast(labelsOn?'이름표 켬':'이름표 끔','');
 }
+// ━━ 마커 그림 ━━ (모양 = 업무 구분, 색 = 팀, 완료 = 초록, 선택 = 크게 + 흰 테두리)
+const _mkImg={};
+function _markerSvg(shape,fill,active){
+  const k=active?1.45:1;
+  const W=Math.round((shape==='both'?20:16)*k),H=W,c=W/2;
+  const st=`stroke="#fff" stroke-width="${active?3:2}"`;
+  let g;
+  if(shape==='tri')g=`<polygon points="${c},2 ${W-1.5},${H-2} 1.5,${H-2}" fill="${fill}" ${st} stroke-linejoin="round"/>`;
+  else if(shape==='both')g=`<circle cx="${c}" cy="${c}" r="${c-1.5}" fill="${fill}" ${st}/><polygon points="${c},${H*.25} ${W*.77},${H*.7} ${W*.23},${H*.7}" fill="#fff"/>`;
+  else if(shape==='square')g=`<rect x="2" y="2" width="${W-4}" height="${H-4}" rx="2" fill="${fill}" ${st}/>`;
+  else g=`<circle cx="${c}" cy="${c}" r="${c-2}" fill="${fill}" ${st}/>`;
+  const shadow=`<g opacity=".35" transform="translate(0 1.2)">${g.replace(/fill="[^"]*"/g,'fill="#000"').replace(/stroke="#fff"/g,'stroke="#000"')}</g>`;
+  return {url:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H+2}" viewBox="0 0 ${W} ${H+2}">${shadow}${g}</svg>`),W,H:H+2};
+}
+function markerImage(d,active){
+  const shape=kindShape(itemKind(d))||'circle';
+  const fill=doneMap[d.id]?'#22c55e':groupColor(d);
+  const key=shape+'|'+fill+'|'+(active?1:0);
+  if(!_mkImg[key]){const m=_markerSvg(shape,fill,active);_mkImg[key]=new kakao.maps.MarkerImage(m.url,new kakao.maps.Size(m.W,m.H),{offset:new kakao.maps.Point(m.W/2,m.W/2)});}
+  return _mkImg[key];
+}
+// 대상 하나의 마커 그림을 지금 상태(완료·선택)로 다시
+function setMarkerIcon(idx){
+  const o=overlays[idx],d=items[idx];if(!o||!o.marker||!d)return;
+  const on=activeMarkerEl===idx;
+  o.marker.setImage(markerImage(d,on));
+  o.marker.setZIndex(on?20:10);
+}
+function clearActiveMarker(){
+  if(activeMarkerEl!=null&&activeMarkerEl!==false){const i=activeMarkerEl;activeMarkerEl=null;setMarkerIcon(i);}
+  activeMarkerEl=null;
+}
 function renderAllMarkers(){
-  Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
-  if(clusterer)clusterer.clear();
+  Object.values(overlays).forEach(o=>{o.marker?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});
+  activeMarkerEl=null;
   overlays={};
   items.forEach((d,i)=>{if(d.lat&&d.lng)addMarker(i,d);});
   updateLabelBtn();
@@ -143,24 +175,24 @@ function getTransparentMarkerImage(){
 function addMarker(idx,d){
   const isDone=!!doneMap[d.id];
   const color=groupColor(d);
-  const el=document.createElement('div');
-  el.className=`kk-marker${kindShapeCls(d)}${isDone?' done':''}`;
-  { const s=kindShape(itemKind(d)); if(KIND_SVG[s]){ el.innerHTML=KIND_SVG[s]; el.style.color=color; } }
-  el.style.background=color; // 완료면 css의 .done(초록)이 우선
-  el.id='mk-'+idx;
-  el.style.position='relative';
-
-  // 툴팁: body에 단 하나의 공유 툴팁 요소를 사용 (stacking context 탈출)
-  el.addEventListener('mouseenter',()=>{
+  const pos=new kakao.maps.LatLng(d.lat,d.lng);
+  // 마커: 카카오 기본 Marker + SVG 그림 (예전 CustomOverlay는 692곳이면 올리는 데만 1.8초, 클러스터와 겹치면 확대 때 21초 멈춤)
+  const marker=new kakao.maps.Marker({position:pos,image:markerImage(d,false),zIndex:10,clickable:true});
+  // 툴팁: 공유 툴팁 하나를 마커 화면 위치에 띄움
+  kakao.maps.event.addListener(marker,'mouseover',()=>{
     if(iwOpen===iw)return;
-    const r=el.getBoundingClientRect();
-    const _k=itemKind(d);
-    _sharedTooltip.textContent=_k?`${d.name} · ${kindLabel(_k)}`:d.name;
-    _sharedTooltip.style.left=(r.left+r.width/2)+'px';
-    _sharedTooltip.style.top=(r.bottom+6)+'px';
-    _sharedTooltip.style.opacity='1';
+    try{
+      const pt=kakaoMap.getProjection().containerPointFromCoords(pos);
+      const r=document.getElementById('map').getBoundingClientRect();
+      const _k=itemKind(d);
+      _sharedTooltip.textContent=_k?`${d.name} · ${kindLabel(_k)}`:d.name;
+      _sharedTooltip.style.left=(r.left+pt.x)+'px';
+      _sharedTooltip.style.top=(r.top+pt.y+12)+'px';
+      _sharedTooltip.style.opacity='1';
+    }catch{}
   });
-  el.addEventListener('mouseleave',()=>{_sharedTooltip.style.opacity='0';});
+  kakao.maps.event.addListener(marker,'mouseout',()=>{_sharedTooltip.style.opacity='0';});
+
   // 이름표(이름 말풍선): 마커 아래 CustomOverlay. 툴바 🏷️ 이름표로 켜고 끔 (처음에는 휴대폰 켬, PC 끔)
   let labelOverlay=null;
   {
@@ -207,27 +239,15 @@ function addMarker(idx,d){
 
   function openIw(){
     if(iwOpen)iwOpen.setMap(null);
-    if(activeMarkerEl)activeMarkerEl.classList.remove('active-mk');
-    el.classList.add('active-mk');activeMarkerEl=el;
+    clearActiveMarker();
+    activeMarkerEl=idx;setMarkerIcon(idx);
     _sharedTooltip.style.opacity='0';
-    clearTimeout(_tipTimer); // 정보카드 열리면 툴팁 타이머 취소
     iw.setMap(kakaoMap);iwOpen=iw;
-    setActive(idx);kakaoMap.panTo(new kakao.maps.LatLng(d.lat,d.lng));
+    setActive(idx);kakaoMap.panTo(pos);
   }
-  el.addEventListener('click',openIw);
-  // 모바일: CustomOverlay 내부에서 click이 누락되는 경우가 있어 touchend로 보완
-  let _touchMoved=false,_tipTimer=null;
-  el.addEventListener('touchstart',()=>{_touchMoved=false;},{passive:true});
-  el.addEventListener('touchmove',()=>{_touchMoved=true;},{passive:true});
-  el.addEventListener('touchend',e=>{if(!_touchMoved){e.preventDefault();openIw();}},{passive:false});
-  const overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(d.lat,d.lng),content:el,zIndex:10});
-  overlay.setMap(kakaoMap);
-  // 클러스터러용 invisible 마커 (줌 레벨 6 이상에서 클러스터로 묶임)
-  // ⚠ opacity:0만으로는 클러스터러가 줌인 시 마커를 재표시할 때 카카오 기본 풍선 아이콘이 노출됨
-  //    → 완전 투명 1x1 PNG를 마커 이미지로 지정해 원천 차단
-  const clMarker=new kakao.maps.Marker({position:new kakao.maps.LatLng(d.lat,d.lng),image:getTransparentMarkerImage()});
-  if(clusterer)clusterer.addMarker(clMarker,true);
-  overlays[idx]={overlay,iw,clMarker,labelOverlay,hidden:false};
+  kakao.maps.event.addListener(marker,'click',openIw);
+  marker.setMap(kakaoMap);
+  overlays[idx]={marker,iw,labelOverlay,hidden:false};
 }
 
 // 정보카드 항목 값: 전화·연락처 칸은 누르면 전화 걸기 (번호가 여러 개면 각각)
