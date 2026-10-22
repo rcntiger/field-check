@@ -23,7 +23,7 @@ function handleBack(){
 
 async function goHome(){
   try{
-    if(kakaoMap){Object.values(overlays).forEach(o=>{o.overlay?.setMap(null);o.iw?.setMap(null);});}
+    if(kakaoMap){Object.values(overlays).forEach(o=>{o.marker?.setMap(null);o.iw?.setMap(null);o.labelOverlay?.setMap(null);});}
     if(iwOpen){iwOpen.setMap(null);iwOpen=null;}
     // 모바일 상태 초기화
     mobMapMode=false;

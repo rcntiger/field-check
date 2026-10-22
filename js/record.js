@@ -35,7 +35,7 @@ async function toggleDone(idx){
     const inp=dateRow.querySelector('input');
     if(inp&&newDone)inp.value=new Date().toISOString().slice(0,10);
   }
-  const mk=document.getElementById(`mk-${idx}`);if(mk)mk.classList.toggle('done',newDone);
+  setMarkerIcon(idx);   // 완료면 초록 마커
   const item=document.getElementById(`item-${idx}`);if(item)item.classList.toggle('done-item',newDone);
   updateStats();
 }

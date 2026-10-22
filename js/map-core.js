@@ -8,18 +8,7 @@ function initKakaoMap(){
       try{
         document.getElementById('mapPh').style.display='none';
         kakaoMap=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(37.46,126.90),level:5});
-        clusterer=new kakao.maps.MarkerClusterer({
-          map:kakaoMap,
-          averageCenter:true,
-          minLevel:6,
-          disableClickZoom:false,
-          styles:[{
-            width:'36px',height:'36px',background:'rgba(47,129,247,.85)',
-            borderRadius:'50%',color:'#fff',textAlign:'center',
-            fontWeight:'700',fontSize:'13px',lineHeight:'36px',
-            border:'2px solid #fff',boxShadow:'0 2px 6px rgba(0,0,0,.4)'
-          }]
-        });
+        // 클러스터(숫자 동그라미)는 쓰지 않음: 692곳에서 레벨 5→6으로 멀어질 때마다 21초 멈춤의 원인이었음 (v3.13.0)
         // 모바일은 지도 보기 클릭 시 툴바 표시, PC는 항상 표시
         if(window.innerWidth>768){
           document.getElementById('mapToolbar').style.display='flex';
@@ -49,7 +38,7 @@ function setActive(idx){
   const el=document.getElementById(`item-${idx}`);
   if(el){el.classList.add('active');el.scrollIntoView({block:'nearest'});}
 }
-function closeIw(){if(iwOpen){iwOpen.setMap(null);iwOpen=null;}if(activeMarkerEl){activeMarkerEl.classList.remove('active-mk');activeMarkerEl=null;}}
+function closeIw(){if(iwOpen){iwOpen.setMap(null);iwOpen=null;}clearActiveMarker();}
 function fitAll(){
   if(!kakaoMap)return;
   const bounds=new kakao.maps.LatLngBounds();
