@@ -1,5 +1,5 @@
 /* field-check · js/excel.js — 엑셀 업로드 · 컬럼 재설정 · 결과 내보내기 · 원본 내려받기 (공통 ExcelUtil 사용) */
-AppFiles.reg('js/excel.js','v3.13.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/excel.js','v3.14.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Excel 업로드 / 컬럼 재설정 (공통 ExcelUtil.createReader 사용) ══════════ */
 let excelReader=null;
@@ -134,6 +134,7 @@ async function _onExcelConfirm(headers,rows,mapping){
 const EXTRA_KEYWORDS=['비고','추가','기타','결과','검수','extra'];
 const CC_INFO_COLS=['관할센터','등급','용도','전화번호'];   // 크로스 체크 지도용 파일의 정보 칸 — 처음에는 미리 골라 둠 (지난번 고른 칸이 있으면 그대로)
 const KIND_COL='구분';   // 크로스 체크 지도용 파일의 업무 구분 열 (조사/훈련/조사·훈련) — 마커 모양·업무 구분 필터에 쓰여 늘 미리 골라 둠
+function _kindColKey(){return 'field_check_kind_col_'+(currentProject?currentProject.id:'');}
 function _extraColsKey(){return 'field_check_extra_cols_'+(currentProject?currentProject.id:'');}
 function _headerLabels(headers){
   // 빈 제목은 'N열', 같은 제목이 또 있으면 뒤에 (2)(3)… 를 붙여 구분
@@ -170,6 +171,11 @@ function showExtraColsModal(){
         <span class="xc-name">${esc(c.t)}</span><span class="xc-sample">${v?esc(v.length>28?v.slice(0,28)+'…':v):'(빈 칸)'}</span></label>`;
     }).join('');
   }
+  // 마커 모양으로 나눌 칸: ① 제목이 '구분'인 칸 ② 이 계획에서 지난번 고른 칸 ③ 없음
+  let prevKind=null;try{prevKind=localStorage.getItem(_kindColKey());}catch(e){}
+  const kindDef=cand.find(c=>c.t===KIND_COL)||cand.find(c=>c.t===prevKind);
+  document.getElementById('xcKind').innerHTML='<option value="">나누지 않음 (모두 동그라미)</option>'
+    +cand.map(c=>{const v=sample(c.i);return `<option value="${c.i}" ${kindDef&&kindDef.i===c.i?'selected':''}>${esc(c.t)}${v?' — 예: '+esc(v.length>16?v.slice(0,16)+'…':v):''}</option>`;}).join('');
   document.getElementById('xcGoBtn').textContent=_excelMode==='reset'?'재설정':_upOpts.mode==='replace'?'바꾸기':'올리기';
   updateExtraColsCount();
   showModal('extraColsModal');
@@ -188,13 +194,16 @@ async function confirmExtraCols(){
   const {headers,rows,idx}=_pendingExcel;
   const labels=_headerLabels(headers);
   const chosen=[...document.querySelectorAll('#xcList input:checked')].map(c=>+c.value);
-  try{localStorage.setItem(_extraColsKey(),JSON.stringify(chosen.map(i=>labels[i])));}catch(e){}
+  const kv=document.getElementById('xcKind').value,kindIdx=kv===''?null:+kv;
+  try{localStorage.setItem(_extraColsKey(),JSON.stringify(chosen.map(i=>labels[i])));localStorage.setItem(_kindColKey(),kindIdx==null?'':labels[kindIdx]);}catch(e){}
   _pendingExcel=null;
   hideModal('extraColsModal');
   const clean=v=>String(v??'').replace(/^\s+|\s+$/g,'').replace(/\s+/g,' ');
   const parsed=rows.map(r=>{
     const extra={};
-    chosen.forEach(i=>{const v=String(r[i]??'').trim();if(v&&v!=='-')extra[labels[i]]=v;}); // 빈 칸·'-'(모름)은 넣지 않음
+    chosen.forEach(i=>{const v=String(r[i]??'').trim();if(v&&v!=='-')extra[labels[i]===KIND_COL&&i!==kindIdx?KIND_COL+'(엑셀)':labels[i]]=v;}); // 빈 칸·'-'(모름)은 넣지 않음
+    // 마커 모양으로 나눌 칸 → 업무 구분('구분') — 엑셀 제목이 '구분'이 아니어도 됨
+    if(kindIdx!=null){const v=String(r[kindIdx]??'').trim();if(v&&v!=='-')extra[KIND_COL]=v;}
     return{
       name:clean(r[idx.name]),
       address:clean(r[idx.addr]),

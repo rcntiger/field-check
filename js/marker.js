@@ -1,5 +1,5 @@
 /* field-check · js/marker.js — 그룹 색상 · 마커 · 이름표 · 정보카드(팝업) 그리기 */
-AppFiles.reg('js/marker.js','v3.13.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
+AppFiles.reg('js/marker.js','v3.14.0'); // 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음)
 
 /* ══════════ Marker & List Render ══════════ */
 // ── 팀 색 ── (마커 · 이름표 · 목록 점 · 정보카드 · 그룹 필터가 모두 여기서 색을 받음)
@@ -79,32 +79,52 @@ function kindLabel(k){
 }
 function kindIsMulti(k){return String(k).includes('·');}          // 여러 목록에 함께 든 대상 (예: 조사·훈련)
 function kindShort(k){return String(k).split('·').map(s=>s.trim().charAt(0)).join('·');} // 조사·훈련 → 조·훈
-// 마커 모양: 조사만 = 삼각형, 훈련만 = 동그라미, 둘 다(여러 목록) = 동그라미 안에 삼각형
-//   이름에 '조사'/'훈련'이 없으면 목록 순서로: 첫째 = 삼각형, 둘째 = 동그라미, 셋째부터 = 네모
-//   'tri' | 'circle' | 'both' | 'square' | '' (구분 없음 = 기존 동그라미)
+// ━━ 마커 모양 ━━ (업무 구분 값마다 하나)
+// 고를 수 있는 모양 7가지 (16px 마커에서 한눈에 구별되는 정도까지) + 여러 구분이 겹친 대상은 ◉ 고정
+const SHAPES=['tri','circle','square','diamond','star','pentagon','cross'];
+const SHAPE_NAMES={tri:'삼각형',circle:'동그라미',square:'네모',diamond:'마름모',star:'별',pentagon:'오각형',cross:'십자',both:'겹침'};
+// 계획에 저장된 값별 모양 (inspections.group_colors 안의 __kind_shapes — 팀 색과 같은 칸, 새 SQL 없음)
+function savedKindShapes(){
+  const m=currentProject&&currentProject.group_colors&&currentProject.group_colors.__kind_shapes;
+  return (m&&typeof m==='object'&&!Array.isArray(m))?m:{};
+}
+// 저장된 모양이 없을 때 자동: 이름에 '조사' → △, '훈련' → ●, 나머지는 남은 모양을 목록 순서대로 (8번째부터는 ●)
+function autoKindShapes(){
+  const saved=savedKindShapes(),out={},used=new Set();
+  const singles=kinds.filter(k=>!kindIsMulti(k));
+  singles.forEach(k=>{if(SHAPES.includes(saved[k])){out[k]=saved[k];used.add(saved[k]);}});
+  singles.forEach(k=>{if(out[k])return;const f=/조사/.test(k)?'tri':/훈련/.test(k)?'circle':null;if(f&&!used.has(f)){out[k]=f;used.add(f);}});
+  singles.forEach(k=>{if(out[k])return;const f=SHAPES.find(x=>!used.has(x));out[k]=f||'circle';if(f)used.add(f);});
+  return out;
+}
+let _kindShapeMemo={key:'',map:{}};
 function kindShape(k){
   if(!k)return '';
   if(kindIsMulti(k))return 'both';
-  if(/조사/.test(k))return 'tri';
-  if(/훈련/.test(k))return 'circle';
-  const i=kinds.filter(x=>!kindIsMulti(x)).indexOf(k);
-  return i===0?'tri':i===1?'circle':'square';
+  const key=kinds.join('|')+'#'+JSON.stringify(savedKindShapes());
+  if(_kindShapeMemo.key!==key)_kindShapeMemo={key,map:autoKindShapes()};
+  return _kindShapeMemo.map[k]||(/조사/.test(k)?'tri':/훈련/.test(k)?'circle':'circle');
 }
-function kindShapeCls(d){
-  const s=kindShape(itemKind(d));
-  return s==='tri'?' k-tri':s==='both'?' k-both':s==='square'?' k-square':'';
+// 모양 그리기 (W×W 상자, 가운데 c) — 지도 마커·필터 칩·모양 고르기 창이 함께 씀
+function shapeSvgBody(shape,W,fill,st){
+  const c=W/2,r=c-1.5,P=pts=>pts.map(p=>p.map(v=>+v.toFixed(2)).join(',')).join(' ');
+  const poly=(n,rot,rr)=>Array.from({length:n},(_,i)=>{const a=rot+i*2*Math.PI/n;return [c+rr*Math.cos(a),c+rr*Math.sin(a)];});
+  switch(shape){
+    case 'tri':return `<polygon points="${c},2 ${W-1.5},${W-2} 1.5,${W-2}" fill="${fill}" ${st} stroke-linejoin="round"/>`;
+    case 'both':return `<circle cx="${c}" cy="${c}" r="${r}" fill="${fill}" ${st}/><polygon points="${c},${W*.25} ${W*.77},${W*.7} ${W*.23},${W*.7}" fill="#fff"/>`;
+    case 'square':return `<rect x="2" y="2" width="${W-4}" height="${W-4}" rx="2" fill="${fill}" ${st}/>`;
+    case 'diamond':return `<polygon points="${c},1.5 ${W-1.5},${c} ${c},${W-1.5} 1.5,${c}" fill="${fill}" ${st} stroke-linejoin="round"/>`;
+    case 'pentagon':return `<polygon points="${P(poly(5,-Math.PI/2,r))}" fill="${fill}" ${st} stroke-linejoin="round"/>`;
+    case 'star':{const o=poly(5,-Math.PI/2,r+.5),i=poly(5,-Math.PI/2+Math.PI/5,r*.45);return `<polygon points="${P(o.flatMap((p,k)=>[p,i[k]]))}" fill="${fill}" ${st} stroke-linejoin="round"/>`;}
+    case 'cross':{const t=W*.19,a=2,b=W-2;return `<polygon points="${P([[c-t,a],[c+t,a],[c+t,c-t],[b,c-t],[b,c+t],[c+t,c+t],[c+t,b],[c-t,b],[c-t,c+t],[a,c+t],[a,c-t],[c-t,c-t]])}" fill="${fill}" ${st} stroke-linejoin="round"/>`;}
+    default:return `<circle cx="${c}" cy="${c}" r="${c-2}" fill="${fill}" ${st}/>`;
+  }
 }
-// 삼각형·겹침 마커는 SVG로 그림 (색은 css color = 팀 색, 완료면 초록)
-const KIND_SVG={
-  tri:'<svg viewBox="0 0 16 15" width="16" height="15" aria-hidden="true"><polygon points="8,1.2 15,13.8 1,13.8" fill="currentColor" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>',
-  both:'<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8.6" fill="currentColor" stroke="#fff" stroke-width="2"/><polygon points="10,4.6 15.2,13.9 4.8,13.9" fill="#fff"/></svg>',
-};
+function shapeSvg(shape,W,fill,stroke){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W}" viewBox="0 0 ${W} ${W}" aria-hidden="true">${shapeSvgBody(shape,W,fill,stroke?`stroke="${stroke}" stroke-width="1.5"`:'')}</svg>`;
+}
 // 필터 칩·범례용 작은 모양 (회색)
-function kindIconHtml(k){
-  const s=kindShape(k);
-  if(s==='tri'||s==='both')return `<span class="kicon" style="color:#94a3b8">${KIND_SVG[s].replace(/width="\d+" height="\d+"/,'width="11" height="11"')}</span>`;
-  return `<span class="kicon kicon-${s==='square'?'sq':'ci'}"></span>`;
-}
+function kindIconHtml(k){return `<span class="kicon">${shapeSvg(kindShape(k)||'circle',12,'#94a3b8')}</span>`;}
 
 // ━━ 이름표 켜기/끄기 ━━ (선택은 이 브라우저에 기억)
 const LABELS_KEY='fc_labels_on';
@@ -127,15 +147,11 @@ function toggleLabels(){
 const _mkImg={};
 function _markerSvg(shape,fill,active){
   const k=active?1.45:1;
-  const W=Math.round((shape==='both'?20:16)*k),H=W,c=W/2;
+  const W=Math.round((shape==='both'||shape==='star'?20:16)*k);
   const st=`stroke="#fff" stroke-width="${active?3:2}"`;
-  let g;
-  if(shape==='tri')g=`<polygon points="${c},2 ${W-1.5},${H-2} 1.5,${H-2}" fill="${fill}" ${st} stroke-linejoin="round"/>`;
-  else if(shape==='both')g=`<circle cx="${c}" cy="${c}" r="${c-1.5}" fill="${fill}" ${st}/><polygon points="${c},${H*.25} ${W*.77},${H*.7} ${W*.23},${H*.7}" fill="#fff"/>`;
-  else if(shape==='square')g=`<rect x="2" y="2" width="${W-4}" height="${H-4}" rx="2" fill="${fill}" ${st}/>`;
-  else g=`<circle cx="${c}" cy="${c}" r="${c-2}" fill="${fill}" ${st}/>`;
+  const g=shapeSvgBody(shape,W,fill,st);
   const shadow=`<g opacity=".35" transform="translate(0 1.2)">${g.replace(/fill="[^"]*"/g,'fill="#000"').replace(/stroke="#fff"/g,'stroke="#000"')}</g>`;
-  return {url:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H+2}" viewBox="0 0 ${W} ${H+2}">${shadow}${g}</svg>`),W,H:H+2};
+  return {url:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W+2}" viewBox="0 0 ${W} ${W+2}">${shadow}${g}</svg>`),W,H:W+2};
 }
 function markerImage(d,active){
   const shape=kindShape(itemKind(d))||'circle';

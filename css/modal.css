@@ -1,5 +1,5 @@
 /* field-check · css/modal.css — 모달 · 폼 */
-:root{--appver-modal:"v3.13.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
+:root{--appver-modal:"v3.14.0"} /* 파일 버전 표시 (tools/bump-version.py가 관리 — 손으로 고치지 않음) */
 
 /* ═══ Modal ═══ */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:8000;align-items:center;justify-content:center;padding:16px}
@@ -66,3 +66,18 @@
 /* ═══ 같은 대상으로 새 계획 ═══ */
 .create-info{font-size:12.5px;color:var(--mt);line-height:1.6;margin:-6px 0 14px;padding:10px 12px;background:var(--sur2);border-radius:var(--r);border-left:3px solid var(--ac)}
 .create-info b{color:var(--tx)}
+
+/* ═══ 업무 구분 마커 모양 ═══ */
+.ks-row{border:1px solid var(--bd2);border-radius:var(--r);padding:10px 12px;background:var(--sur2)}
+.ks-head{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ks-cur{display:inline-flex;line-height:0}
+.ks-name{font-size:13.5px;font-weight:700;flex:1;min-width:0;word-break:break-all}
+.ks-cnt{font-size:11px;color:var(--mt);white-space:nowrap}
+.ks-pick{display:flex;gap:6px;flex-wrap:wrap}
+.ks-pick button{width:34px;height:34px;border-radius:8px;border:1px solid var(--bd2);background:var(--sur);color:var(--mt);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.ks-pick button:hover{border-color:var(--ac);color:var(--tx)}
+.ks-pick button.on{border-color:var(--ac);background:var(--ac);color:#fff}
+.ks-note{font-size:12px;color:var(--mt);display:flex;align-items:center;gap:6px;line-height:1.5}
+.xc-kind{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12.5px;font-weight:700;color:var(--tx)}
+.xc-kind select{flex:1;min-width:0;padding:6px 8px}
+.xc-kind-hint{font-size:11.5px;color:var(--mt);line-height:1.5;margin-top:4px}

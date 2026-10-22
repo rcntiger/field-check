@@ -14,7 +14,7 @@
    · 버전을 올릴 때는 손으로 고치지 말고:  python tools/bump-version.py 2.0.1
      (이 줄과 모든 파일의 버전 표시를 한 번에 바꾼다.  확인만:  python tools/bump-version.py --check)
    ═══════════════════════════════════════════════════════════════════════ */
-const APP_VERSION = 'v3.13.0';
+const APP_VERSION = 'v3.14.0';
 
 const AppFiles = {
   // 불러오는 순서 = 아래 적힌 순서. 파일을 추가하면 여기에도 적는다.
@@ -23,7 +23,7 @@ const AppFiles = {
   // 공통 모듈: 파일 → 그 파일이 만드는 전역 이름 (불러왔는지 확인용. null이면 확인 생략)
   // ※ common의 기존 config.js(ConfigUtil)·kakao.js(KakaoUtil)는 쓰지 않는다 — keys.js(APP_KEYS)·kakao-geo.js(KakaoGeo)와 별개 파일
   common: {'logger.js':null,'utils.js':'Utils','supabase.js':'SupabaseUtil','excel.js':'ExcelUtil','keys.js':'APP_KEYS','kakao-geo.js':'KakaoGeo'},
-  js: ['config','state','core','project','project-open','filter','map-core','marker','record','photo','list','team-color','excel','geocode','search','station','navigation','map-tools','gps','roadview','mobile','init'],
+  js: ['config','state','core','project','project-open','filter','map-core','marker','record','photo','list','team-color','kind-shape','excel','geocode','search','station','navigation','map-tools','gps','roadview','mobile','init'],
 
   loaded: {},                                   // js 파일이 스스로 적어 넣는 버전
   reg(name, ver) { this.loaded[name] = ver; },
@@ -137,7 +137,10 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
         <div class="filter-row" id="groupFilter"></div>
       </div>
       <div class="panel" id="kindPanel" style="display:none">
-        <div class="ptitle">🧭 업무 구분</div>
+        <div class="ptitle-row">
+          <div class="ptitle">🧭 업무 구분</div>
+          <button class="fbtn ptitle-btn" onclick="showKindShapeModal()" title="업무 구분마다 마커 모양 정하기">🔷 모양 지정</button>
+        </div>
         <div class="filter-row" id="kindFilter"></div>
       </div>
       <div class="panel">
@@ -331,6 +334,22 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
   </div>
 </div>
 
+<!-- ════ 모달: 업무 구분 마커 모양 ════ -->
+<div class="modal-bg" id="kindShapeModal">
+  <div class="modal" style="max-width:480px">
+    <h3>🔷 업무 구분 마커 모양</h3>
+    <div class="tc-hint">업무 구분마다 지도 마커 모양을 고릅니다. 이 계획을 여는 모든 사람에게 같은 모양으로 보입니다. 색은 팀 색, 점검을 마친 곳은 초록입니다.</div>
+    <div class="tc-list" id="ksList"></div>
+    <div class="tc-warn" id="ksWarn"></div>
+    <div class="tc-foot">
+      <button class="btn btn-ghost" onclick="resetKindShapes()" title="정한 모양을 지우고 자동으로">자동 모양으로</button>
+      <div class="grow"></div>
+      <button class="btn btn-ghost" onclick="hideModal('kindShapeModal')">취소</button>
+      <button class="btn btn-primary" id="ksSaveBtn" onclick="saveKindShapes()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ 모달: 정보카드 항목 고르기 (엑셀 업로드 · 컬럼 재설정 다음 단계) ════ -->
 <div class="modal-bg" id="extraColsModal">
   <div class="modal" style="max-width:520px">
@@ -343,6 +362,8 @@ document.addEventListener('DOMContentLoaded', () => AppFiles.report());
       <button class="btn btn-ghost" onclick="setAllExtraCols(false)">모두 빼기</button>
     </div>
     <div class="xc-list" id="xcList"></div>
+    <label class="xc-kind">🔷 마커 모양으로 나눌 칸 <select id="xcKind"></select></label>
+    <div class="xc-kind-hint">고른 칸의 값(예: 조사 / 훈련, 지상식 / 지하식)마다 지도 마커 모양이 달라지고, 업무 구분 필터가 생깁니다. 모양은 올린 뒤 "🔷 모양 지정"에서 바꿀 수 있습니다.</div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
       <button class="btn btn-ghost" onclick="cancelExtraCols()">취소</button>
       <button class="btn btn-primary" id="xcGoBtn" onclick="confirmExtraCols()">올리기</button>
